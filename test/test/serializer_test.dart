@@ -1,8 +1,5 @@
-import 'dart:ffi';
-
-import 'package:fpdart/fpdart.dart';
 import 'package:messagepack/messagepack.dart';
-import 'package:serializer/serializer.dart';
+import 'package:tagger/serializer.dart';
 import 'package:test/test.dart';
 
 void main() {

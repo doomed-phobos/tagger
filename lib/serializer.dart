@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:fpdart/fpdart.dart';
-import 'package:serializer/packer_extension.dart';
+import 'packer_extension.dart';
 import 'package:messagepack/messagepack.dart';
 
 class NonEmptyString {
