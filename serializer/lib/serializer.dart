@@ -48,8 +48,7 @@ class Artist {
 
   Artist({required this.name, this.tags = const [], this.urls = const []});
 
-  Uint8List toBytes() {
-    final packer = Packer();
+  void toPacker(Packer packer) {
     packer.packString(name.value);
     packer.packInt(tags.length);
     for (var tag in tags) {
@@ -59,7 +58,11 @@ class Artist {
     for (var url in urls) {
       packer.packString(url.value);
     }
+  }
 
+  Uint8List toBytes() {
+    final packer = Packer();
+    toPacker(packer);
     return packer.takeBytes();
   }
 
