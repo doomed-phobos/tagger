@@ -17,11 +17,12 @@ ThemeData get_app_theme_data() {
   );
 }
 
-ButtonStyle get_tag_style() {
-  return ElevatedButton.styleFrom(
+ButtonStyle get_tag_style(bool selected) {
+  return OutlinedButton.styleFrom(
+    side: selected ? BorderSide(color: Colors.blue, width: 2) : null,
     backgroundColor: Colors.grey[800],
     foregroundColor: Colors.white,
-    padding: EdgeInsetsGeometry.symmetric(vertical: 4, horizontal: 6),
+    padding: EdgeInsetsGeometry.symmetric(vertical: 4, horizontal: 8),
     tapTargetSize: .shrinkWrap,
     minimumSize: Size.zero,
     textStyle: TextStyle(fontSize: 12)

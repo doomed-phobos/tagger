@@ -1,5 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:fpdart/fpdart.dart' as fp;
 import 'package:tagger/theme.dart';
+import 'package:tagger/serializer.dart';
+
+final test_artist = Artist(
+  name: NonEmptyString.unsafeMake("Artista 1"),
+  tags: [
+    ArtistTag(
+      tag_id: 0,
+      image_url: NonEmptyString.unsafeMake(
+        "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiGWe25pqRXuepd0hncJ-vYW2M8h7kGQcegq0osoCcc4hOahM9d0D18AFlgMJo25cLYGtRb3oiVpup6k00cZLkfeZVaQvHLuzchYb_H19czh_QLLG7OTGYWSNxdcAWyX0i6YlylOvJOmEe0694b-1RKxQbhB1wbPHHZsIpwA5Z_SUuKCMtRKK8Krwt1/s1600/02.jpg",
+      ),
+    ),
+    ArtistTag(
+      tag_id: 1,
+      image_url: NonEmptyString.unsafeMake(
+        "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjPZJEEv8Tx8b-l6VQwlZ7w1d5KxImcoqdY9POMXYJEBqpmDHkU18alSwGgcYl87d7pPhvLpRk6jgZ3cg8vFmO9IL9m4ZR7Mm8urORYO6RGKz2BBhXCD8HVhnT60t5J5iHTj6UyRGkhH8vBYcgaQW2BIIXDPfLcv_nDEeZrRat4PuATk4pvsJL-iCgL/s2133/05.jpg",
+      ),
+    ),
+    ArtistTag(
+      tag_id: 2,
+      image_url: NonEmptyString.unsafeMake(
+        "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhJdhOIv8EydfMJNR2Uf0cATMZyJB0iu8fXs5WpfUDk7F_KbdX4towpWBMTqppolgcUOqZxbIYuUEELpx5VA6GamyNrxen2xB8Fr1ZIs4h3ENtkKt1L0LmIq15QDDHfnnExWuJCX4PiWHYh89ufZsotemfUiArjVuqxr7ryXqxWfN0pwMVBVlnLNQ6Q/s1600/07.jpg",
+      ),
+    ),
+    ArtistTag(
+      tag_id: 3,
+      image_url: NonEmptyString.unsafeMake(
+        "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEin8I9uhcHN2cyamr6cIeWH5uAyn-6KRKnkAx96XqHhKEp_PdoczzPWuj3RHebIbSU6VpL2FEiYlHSVY3fuCn5d5P-vR2YQyaV3KMRnHi4HwSDWwLP2Y2aqqzxvPRMfiCN_bea7y_VZVNzmWPIFn39zfbcyO7AxSLn-Pjm-4JUeK66TLSTZWyiwBwHW/s1600/09.jpg",
+      ),
+    ),
+    ArtistTag(
+      tag_id: 4,
+      image_url: NonEmptyString.unsafeMake(
+        "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjXq6WAPV8sDb2YDdjsjGUQu1r6fx9aaBVtqC-kM43qCfL7bD_4NW5uA5Obkqdd3aU5kyCGjuUlSdHGoqnW3jz5VTzAnmRCwXFP40LcPRJRbbcf1NYjRVYGmDE0WavqSZCvjpPo3h1VdU-e9R2yrtQOouTslpeh8JZQcGl9GyzYHXsq8ToyZabn4oAH/s1600/10.jpg",
+      ),
+    ),
+    ArtistTag(
+      tag_id: 5,
+      image_url: NonEmptyString.unsafeMake(
+        "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhJkPna2XmAlJ36Y0A0dQmv6BqmLdyUKuCD5mo3rX2qg_G3363wKOVJI4w4OAU9i6-SOtL_vs4WI-t2rhp2-hi7lMxFh-vSIK99uGyBw6UNBvmFm5R2cfAu8bitljEg6BfrXHYok0oHU6Iz16bmq_EkQW7Wz-mysd9XbHxMfJUAyRCE5YCc0sydrX56/s1600/12.jpg",
+      ),
+    ),
+  ],
+);
+
+final test_tags = {
+  0: Tag(id: 0, name: .unsafeMake("Tag 1")),
+  1: Tag(id: 0, name: .unsafeMake("Tag 2")),
+  2: Tag(id: 0, name: .unsafeMake("Tag 3")),
+  3: Tag(id: 0, name: .unsafeMake("Tag 4")),
+  4: Tag(id: 0, name: .unsafeMake("Tag 5")),
+  5: Tag(id: 0, name: .unsafeMake("Tag 6")),
+};
 
 void main() {
   runApp(const App());
@@ -26,7 +79,7 @@ class App extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 10),
-                ArtistItem(),
+                ArtistItem(test_artist),
               ],
             ),
           ),
@@ -36,37 +89,47 @@ class App extends StatelessWidget {
   }
 }
 
-class ArtistItem extends StatelessWidget {
-  const ArtistItem({super.key});
+class ArtistItem extends StatefulWidget {
+  final Artist artist;
+
+  const ArtistItem(this.artist, {super.key});
+
+  @override
+  _ArtistItem createState() => _ArtistItem();
+}
+
+class _ArtistItem extends State<ArtistItem> {
+  fp.Option<int> selectedItem = fp.none();
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Row(
-        children: [
-          Expanded(
-            flex: 1,
-            child: SizedBox(
-              child: Image.network(
-                fit: .fitWidth,
-                "https://upload.wikimedia.org/wikipedia/commons/9/94/Tagosaku_to_Mokube_no_Tokyo_Kenbutsu.jpg",
-              ),
+    final content = Expanded(
+      flex: 3,
+      child: Padding(padding: .all(6), child: buildInnerContent()),
+    );
+    final children = selectedItem.match(() => [content], (i) {
+      return [
+        Expanded(
+          flex: 1,
+          child: SizedBox(
+            child: Image.network(
+              fit: .fitWidth,
+              widget.artist.tags[i].image_url.value,
             ),
           ),
-          Expanded(
-            flex: 3,
-            child: Padding(padding: .all(6), child: buildInnerContent()),
-          ),
-        ],
-      ),
-    );
+        ),
+        content,
+      ];
+    });
+
+    return Card(child: Row(children: children));
   }
 
   Widget buildInnerContent() {
     return Column(
       crossAxisAlignment: .start,
       children: [
-        Text("Artist Name", style: get_artist_name_style()),
+        Text(widget.artist.name.value, style: get_artist_name_style()),
         Table(
           columnWidths: {0: FlexColumnWidth(1), 1: FlexColumnWidth(5)},
           children: [
@@ -81,13 +144,18 @@ class ArtistItem extends StatelessWidget {
                   child: Wrap(
                     spacing: 8.0,
                     runSpacing: 8.0,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: get_tag_style(),
-                        child: Text("Short Tag"),
-                      ),
-                    ],
+                    children: widget.artist.tags.mapWithIndex((e, i) {
+                      final tag = test_tags[e.tag_id];
+                      assert(tag != null);
+
+                      return OutlinedButton(
+                        onPressed: () {setState(() {
+                          selectedItem = fp.some(i);
+                        });},
+                        style: get_tag_style(selectedItem.getOrElse(() => -1) == i),
+                        child: Text(tag!.name.value),
+                      );
+                    }).toList(),
                   ),
                 ),
               ],
@@ -102,12 +170,7 @@ class ArtistItem extends StatelessWidget {
                   spacing: 8.0,
                   runSpacing: 8.0,
                   children: [
-                    GestureDetector(
-                      child: Text(
-                        "a",
-                        style: get_link_style(),
-                      ),
-                    ),
+                    GestureDetector(child: Text("a", style: get_link_style())),
                   ],
                 ),
               ],
