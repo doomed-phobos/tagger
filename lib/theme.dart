@@ -21,8 +21,6 @@ ButtonStyle get_tag_style() {
   return ElevatedButton.styleFrom(
     backgroundColor: Colors.grey[800],
     foregroundColor: Colors.white,
-    disabledBackgroundColor: Colors.grey[800],
-    disabledForegroundColor: Colors.white,
     padding: EdgeInsetsGeometry.symmetric(vertical: 4, horizontal: 6),
     tapTargetSize: .shrinkWrap,
     minimumSize: Size.zero,
