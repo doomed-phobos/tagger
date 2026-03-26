@@ -5,66 +5,88 @@ import 'package:http/http.dart' as http;
 
 typedef _HitomiGalleryPage = (int /*galleryId*/, int /*page*/);
 
-TaskEither<String, String> get_image_url_from_hitomi_url(String url) {
-  return _get_hitomi_gallery_page_from_url(url).match(
-    () => TaskEither.left("Invalid URL"),
-    (gallery_page) => TaskEither(() async {
-      final gallery_script = await http.get(
-        Uri.https(
-          "ltn.gold-usergeneratedcontent.net",
-          "galleries/${gallery_page.$1}.js",
-        ),
-      );
-      final gg_script = await http.get(
-        Uri.https("ltn.gold-usergeneratedcontent.net", "gg.js"),
-      );
+TaskEither<String, Uint8List> get_image_bytes_from_hitomi_url(
+  String url,
+) => _get_image_url_from_hitomi_url(url).flatMap(
+  (image_url) => TaskEither(() async {
+    final uri = Uri.tryParse(image_url);
+    assert(uri != null);
+    final response = await http.get(
+      uri!,
+      headers: {
+        "accept":
+            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Referer": "https://hitomi.la",
+      },
+    );
 
-      if (gallery_script.statusCode != 200 || gg_script.statusCode != 200) {
-        return left("Failed to get JS from hitomi.la");
-      }
+    if (response.statusCode != 200) {
+      return left("Failed to get image bytes from URL");
+    }
 
-      return _GG
-          .makeFromString(gg_script.body)
-          .match(
-            () => left("Failed to parse JS from hitomi.la"),
-            (gg) =>
-                Option.fromNullable(
-                      RegExp(
-                        r'"files":\s*(\[[^\]]+\])',
-                      ).firstMatch(gallery_script.body),
-                    )
-                    .flatMap((match) => Option.fromNullable(match.group(1)))
-                    .flatMap(
-                      (body) => Option.tryCatch(
-                        () =>
-                            (jsonDecode(body)
-                                    as List<dynamic>)[gallery_page.$2 - 1]
-                                as Map<String, dynamic>,
-                      ),
-                    )
-                    .flatMap(
-                      (entry) => Option.tryCatch(
-                        () => (
-                          entry["hash"] as String,
-                          (entry["hasavif"] as int) == 1,
+    return right(response.bodyBytes);
+  }),
+);
+
+TaskEither<String, String> _get_image_url_from_hitomi_url(String url) =>
+    _get_hitomi_gallery_page_from_url(url).match(
+      () => TaskEither.left("Invalid URL"),
+      (gallery_page) => TaskEither(() async {
+        final gallery_script = await http.get(
+          Uri.https(
+            "ltn.gold-usergeneratedcontent.net",
+            "galleries/${gallery_page.$1}.js",
+          ),
+        );
+        final gg_script = await http.get(
+          Uri.https("ltn.gold-usergeneratedcontent.net", "gg.js"),
+        );
+
+        if (gallery_script.statusCode != 200 || gg_script.statusCode != 200) {
+          return left("Failed to get JS from hitomi.la");
+        }
+
+        return _GG
+            .makeFromString(gg_script.body)
+            .match(
+              () => left("Failed to parse JS from hitomi.la"),
+              (gg) =>
+                  Option.fromNullable(
+                        RegExp(
+                          r'"files":\s*(\[[^\]]+\])',
+                        ).firstMatch(gallery_script.body),
+                      )
+                      .flatMap((match) => Option.fromNullable(match.group(1)))
+                      .flatMap(
+                        (body) => Option.tryCatch(
+                          () =>
+                              (jsonDecode(body)
+                                      as List<dynamic>)[gallery_page.$2 - 1]
+                                  as Map<String, dynamic>,
                         ),
-                      ),
-                    )
-                    .match(() => left("Invalid Page ${gallery_page.$2}"), (
-                      entry,
-                    ) {
-                      return right(
-                        _url_from_url(
-                          _url_from_hash(entry.$1, entry.$2, gg),
-                          entry.$2,
-                          gg,
+                      )
+                      .flatMap(
+                        (entry) => Option.tryCatch(
+                          () => (
+                            entry["hash"] as String,
+                            (entry["hasavif"] as int) == 1,
+                          ),
                         ),
-                      );
-                    }),
-          );
-    }),
-  );
-}
+                      )
+                      .match(() => left("Invalid Page ${gallery_page.$2}"), (
+                        entry,
+                      ) {
+                        return right(
+                          _url_from_url(
+                            _url_from_hash(entry.$1, entry.$2, gg),
+                            entry.$2,
+                            gg,
+                          ),
+                        );
+                      }),
+            );
+      }),
+    );
 
 String _url_from_hash(String hash, bool hasavif, _GG gg) =>
     "https://${hasavif ? "a" : "w"}.gold-usergeneratedcontent.net/${_full_path_from_hash(hash, gg)}.${hasavif ? "avif" : "webp"}";
@@ -143,6 +165,8 @@ class _GG {
       } else if (line.startsWith("o = ")) {
         if (line.startsWith("o = 1")) {
           o = some(true);
+        } else {
+          o = some(false);
         }
       } else if (line.startsWith("b: '")) {
         b = Option.tryCatch(
