@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:fpdart/fpdart.dart';
 import 'package:messagepack/messagepack.dart';
@@ -15,6 +16,10 @@ class Database {
   List<Tag> get tags => List.unmodifiable(_artists);
 
   Database._(this._directory_path, this._artists, this._tags, this._map_tags);
+
+  void add(NonEmptyString artist_name, Iterator<(NonEmptyString, Uint8List)> tag_iterator, Iterator<NonEmptyString> url_iterator) {
+    
+  }
 
   static TaskOption<Database> make_from_data() => TaskOption(() async {
     final directory = await getApplicationDocumentsDirectory();

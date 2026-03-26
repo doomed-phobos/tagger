@@ -63,7 +63,11 @@ class _AddPage extends State<AddPage> {
                               );
                       },
                       (e) {
-                        debugPrint(e.$1.value);
+                        widget._database.add(
+                          e.$1,
+                          e.$2.iterator,
+                          e.$3.iterator
+                        );
                       }
                     );
                   }
