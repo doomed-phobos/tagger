@@ -78,9 +78,8 @@ TaskEither<String, String> _get_image_url_from_hitomi_url(String url) =>
                       ) {
                         return right(
                           _url_from_url(
-                            _url_from_hash(entry.$1, entry.$2, gg),
-                            entry.$2,
-                            gg,
+                            _url_from_hash(entry.$1, gg),
+                            gg
                           ),
                         );
                       }),
@@ -88,26 +87,26 @@ TaskEither<String, String> _get_image_url_from_hitomi_url(String url) =>
       }),
     );
 
-String _url_from_hash(String hash, bool hasavif, _GG gg) =>
-    "https://${hasavif ? "a" : "w"}.gold-usergeneratedcontent.net/${_full_path_from_hash(hash, gg)}.${hasavif ? "avif" : "webp"}";
+String _url_from_hash(String hash, _GG gg) =>
+    "https://w.gold-usergeneratedcontent.net/${_full_path_from_hash(hash, gg)}.webp";
 
 String _full_path_from_hash(String hash, _GG gg) =>
     "${gg.b}/${gg.s(hash)}/$hash";
 
-String _url_from_url(String url, bool hasavif, _GG gg) {
+String _url_from_url(String url, _GG gg) {
   final regex = RegExp(
     r'//..?\.(?:gold-usergeneratedcontent\.net|hitomi\.la)/',
   );
 
   return url.replaceFirstMapped(regex, (match) {
-    final subdomain = _subdomain_from_url(url, hasavif, gg);
+    final subdomain = _subdomain_from_url(url, gg);
     return '//$subdomain.gold-usergeneratedcontent.net/';
   });
 }
 
-String _subdomain_from_url(String url, bool hasavif, _GG gg) {
+String _subdomain_from_url(String url, _GG gg) {
   // w for webp, a for avif
-  String retval = hasavif ? 'a' : 'w';
+  String retval = 'w';
 
   const int b = 16;
 
