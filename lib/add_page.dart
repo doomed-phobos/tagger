@@ -14,7 +14,7 @@ class AddPage extends StatelessWidget {
   final Database _database;
   final HashMap<NonEmptyString, fp.Option<Uint8List>> _tag_map = HashMap();
   final HashSet<NonEmptyString> _link_set = HashSet();
-  
+
   AddPage(this._database, {super.key});
 
   @override
@@ -32,27 +32,40 @@ class AddPage extends StatelessWidget {
                   style: TextStyle(fontWeight: .bold, fontSize: 24),
                 ),
               ),
-              ElevatedButton(onPressed: () {
-                if(_formKey.currentState!.validate()) {
-
-                }
-              }, child: const Text("Save")),
+              ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {}
+                },
+                child: const Text("Save"),
+              ),
             ],
           ),
 
-          SizedBox(height: 10),
-          TextFormField(
-            decoration: InputDecoration(
-              labelText: "Artist Name",
-              hintText: "artist 1"
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  SizedBox(height: 10),
+                  TextFormField(
+                    decoration: InputDecoration(
+                      labelText: "Artist Name",
+                      hintText: "artist 1",
+                    ),
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? "Artist is empty"
+                        : null,
+                  ),
+                  SizedBox(height: 20),
+
+                  _TagForm(_tag_map, _database.tags),
+
+                  SizedBox(height: 10),
+
+                  _LinkForm(_link_set),
+                ],
+              ),
             ),
-            validator: (value) => (value == null || value.isEmpty) ? "Artist is empty" : null,
           ),
-          SizedBox(height: 10),
-
-          _TagForm(_tag_map, _database.tags),
-
-          _LinkForm(_link_set),
         ],
       ),
     );
@@ -116,7 +129,9 @@ class _TagFormState extends State<_TagForm> {
                         icon: Icon(Icons.add),
                       ),
                     ),
-                    validator: (value) => (value == null || value.isEmpty) ? "Tag is empty" : null,
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? "Tag is empty"
+                        : null,
                   );
                 },
           ),
@@ -137,7 +152,8 @@ class _TagFormState extends State<_TagForm> {
                         Text(e.key.value),
                         SizedBox(width: 10),
                         IconButton(
-                          onPressed: () => setState(() => widget.tag_map.remove(e.key)),
+                          onPressed: () =>
+                              setState(() => widget.tag_map.remove(e.key)),
                           style: get_button_icon_style(),
                           icon: Icon(Icons.delete),
                         ),
@@ -156,7 +172,8 @@ class _TagFormState extends State<_TagForm> {
     final controller = TextEditingController();
     var loading = false;
 
-    final updateImage = (bytes) => setState(() => widget.tag_map[key] = fp.some(bytes));
+    final updateImage = (bytes) =>
+        setState(() => widget.tag_map[key] = fp.some(bytes));
 
     showModalBottomSheet(
       context: context,
@@ -254,15 +271,16 @@ class _LinkFormState extends State<_LinkForm> {
               suffixIcon: IconButton(
                 onPressed: () {
                   if (formKey.currentState!.validate()) {
-                    NonEmptyString.makeFromString(
-                      controller.text,
-                    ).match(() {}, (v) {
-                      if (!widget.link_set.contains(v)) {
-                        setState(() {
-                          widget.link_set.add(v);
-                        });
-                      }
-                    });
+                    NonEmptyString.makeFromString(controller.text).match(
+                      () {},
+                      (v) {
+                        if (!widget.link_set.contains(v)) {
+                          setState(() {
+                            widget.link_set.add(v);
+                          });
+                        }
+                      },
+                    );
                     controller.clear();
                     focusNode.unfocus();
                   }
@@ -270,7 +288,8 @@ class _LinkFormState extends State<_LinkForm> {
                 icon: Icon(Icons.add),
               ),
             ),
-            validator: (value) => (value == null || value.isEmpty) ? "Tag is empty" : null,
+            validator: (value) =>
+                (value == null || value.isEmpty) ? "Tag is empty" : null,
           ),
           SizedBox(height: 10),
           Wrap(
@@ -284,10 +303,11 @@ class _LinkFormState extends State<_LinkForm> {
                     child: Row(
                       mainAxisSize: .min,
                       children: [
-                        Text(url.value),
+                        Flexible(child: Text(url.value)),
                         SizedBox(width: 10),
                         IconButton(
-                          onPressed: () => setState(() => widget.link_set.remove(url)),
+                          onPressed: () =>
+                              setState(() => widget.link_set.remove(url)),
                           style: get_button_icon_style(),
                           icon: Icon(Icons.delete),
                         ),
