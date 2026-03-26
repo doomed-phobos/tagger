@@ -152,8 +152,12 @@ class _TagFormState extends State<_TagForm> {
                         Text(e.key.value),
                         SizedBox(width: 10),
                         IconButton(
-                          onPressed: () =>
-                              setState(() => widget.tag_map.remove(e.key)),
+                          onPressed: () async {
+                            final confirm = await _show_yes_no_dialog(context, 'Delete Tag "${e.key.value}"?');
+                            if (confirm) {
+                              setState(() => widget.tag_map.remove(e.key));
+                            } 
+                          },
                           style: get_button_icon_style(),
                           icon: Icon(Icons.delete),
                         ),
@@ -306,8 +310,12 @@ class _LinkFormState extends State<_LinkForm> {
                         Flexible(child: Text(url.value)),
                         SizedBox(width: 10),
                         IconButton(
-                          onPressed: () =>
-                              setState(() => widget.link_set.remove(url)),
+                          onPressed: () async {
+                            final confirm = await _show_yes_no_dialog(context, 'Delete "${url}"?');
+                            if(confirm) {
+                              setState(() => widget.link_set.remove(url));
+                            }
+                          },
                           style: get_button_icon_style(),
                           icon: Icon(Icons.delete),
                         ),
@@ -321,4 +329,17 @@ class _LinkFormState extends State<_LinkForm> {
       ),
     );
   }
+}
+
+Future<bool> _show_yes_no_dialog(BuildContext context, String message) async {
+  return await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(message),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text("No")),
+        TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text("Yes")),
+      ],
+    )
+  ) ?? false;
 }
