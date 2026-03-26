@@ -1,5 +1,8 @@
+import 'dart:collection';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:tagger/database.dart';
 import 'package:tagger/image_extractor.dart';
 import 'package:tagger/serializer.dart';
 import 'package:tagger/theme.dart';
@@ -8,18 +11,18 @@ import 'package:toastification/toastification.dart';
 
 class AddPage extends StatelessWidget {
   final _formKey = GlobalKey<FormState>();
+  final Database _database;
+  final HashMap<NonEmptyString, fp.Option<Uint8List>> _tag_map = HashMap();
   
-  AddPage({super.key});
+  AddPage(this._database, {super.key});
 
   @override
   Widget build(BuildContext context) {
     return Form(
       key: _formKey,
       child: Column(
-        crossAxisAlignment: .stretch,
         children: [
           Row(
-            mainAxisAlignment: .end,
             children: [
               const Expanded(
                 child: Text(
@@ -28,44 +31,44 @@ class AddPage extends StatelessWidget {
                   style: TextStyle(fontWeight: .bold, fontSize: 24),
                 ),
               ),
-              ElevatedButton(onPressed: () {}, child: const Text("Save")),
+              ElevatedButton(onPressed: () {
+                if(_formKey.currentState!.validate()) {
+
+                }
+              }, child: const Text("Save")),
             ],
           ),
 
           SizedBox(height: 10),
-          Expanded(child: TextFormField(
+          TextFormField(
             decoration: InputDecoration(
               labelText: "Artist Name",
               hintText: "artist 1"
             ),
-            validator: (value) => (value == null || value.isEmpty) ? "Tag is empty" : null,
-          )),
-          // add.TagForm(),
+            validator: (value) => (value == null || value.isEmpty) ? "Artist is empty" : null,
+          ),
+          SizedBox(height: 10),
+
+          _TagForm(_tag_map, _database.tags),
+          SizedBox(height: 10),
         ],
       ),
     );
   }
 }
 
-final vec_tags = [
-  Tag(id: 0, name: .unsafeMake("Tag 1")),
-  Tag(id: 1, name: .unsafeMake("Tag 2")),
-  Tag(id: 2, name: .unsafeMake("Tag 3")),
-  Tag(id: 3, name: .unsafeMake("Tag 4")),
-  Tag(id: 4, name: .unsafeMake("Tag 5")),
-  Tag(id: 5, name: .unsafeMake("Tag 6")),
-];
+class _TagForm extends StatefulWidget {
+  final HashMap<NonEmptyString, fp.Option<Uint8List>> _tag_map;
+  final List<Tag> _tags;
 
-class TagForm extends StatefulWidget {
-  const TagForm({super.key});
+  const _TagForm(this._tag_map, this._tags, {super.key});
 
   @override
-  createState() => _TagForm();
+  createState() => _TagFormState();
 }
 
-class _TagForm extends State<TagForm> {
+class _TagFormState extends State<_TagForm> {
   final _formKey = GlobalKey<FormState>();
-  final Map<NonEmptyString, fp.Option<Uint8List>> map = {};
 
   @override
   Widget build(BuildContext context) {
@@ -76,12 +79,12 @@ class _TagForm extends State<TagForm> {
         children: [
           Autocomplete<String>(
             optionsBuilder: (input) {
-              return vec_tags
+              return widget._tags
                   .filter(
                     (tag) =>
                         tag.name.value.toLowerCase().startsWith(input.text),
                   )
-                  .filter((tag) => !map.containsKey(tag.name))
+                  .filter((tag) => !widget._tag_map.containsKey(tag.name))
                   .map((tag) => tag.name.value);
             },
             fieldViewBuilder:
@@ -98,9 +101,9 @@ class _TagForm extends State<TagForm> {
                             NonEmptyString.makeFromString(
                               controller.text,
                             ).match(() {}, (v) {
-                              if (!map.containsKey(v)) {
+                              if (!widget._tag_map.containsKey(v)) {
                                 setState(() {
-                                  map[v] = fp.None();
+                                  widget._tag_map[v] = fp.None();
                                 });
                               }
                             });
@@ -119,7 +122,7 @@ class _TagForm extends State<TagForm> {
           Wrap(
             runSpacing: 8,
             spacing: 8,
-            children: map.entries
+            children: widget._tag_map.entries
                 .map(
                   (e) => OutlinedButton(
                     onPressed: () => showImageModal(e.key),
@@ -132,7 +135,7 @@ class _TagForm extends State<TagForm> {
                         Text(e.key.value),
                         SizedBox(width: 10),
                         IconButton(
-                          onPressed: () => setState(() => map.remove(e.key)),
+                          onPressed: () => setState(() => widget._tag_map.remove(e.key)),
                           style: get_button_icon_style(),
                           icon: Icon(Icons.delete),
                         ),
@@ -151,14 +154,14 @@ class _TagForm extends State<TagForm> {
     final controller = TextEditingController();
     var loading = false;
 
-    final updateImage = (bytes) => setState(() => map[key] = fp.some(bytes));
+    final updateImage = (bytes) => setState(() => widget._tag_map[key] = fp.some(bytes));
 
     showModalBottomSheet(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            var image = map
+            var image = widget._tag_map
                 .lookup(key)
                 .flatMap((o) => o)
                 .match(
