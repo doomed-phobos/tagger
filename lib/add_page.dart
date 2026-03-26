@@ -221,7 +221,7 @@ class _TagFormState extends State<_TagForm> {
                               () => toastification.show(
                                 title: Text(e),
                                 type: .error,
-                                autoCloseDuration: const Duration(seconds: 2),
+                                autoCloseDuration: const Duration(seconds: 3),
                               ),
                             ),
                             (bytes) => updateImage(bytes),

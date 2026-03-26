@@ -6,7 +6,7 @@ ThemeData get_app_theme_data() {
     inputDecorationTheme: InputDecorationTheme(
       hintStyle: TextStyle(color: Colors.grey[600]),
       border: .none,
-      contentPadding: EdgeInsets.symmetric(horizontal: 5),
+      contentPadding: EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       focusedBorder: OutlineInputBorder(
         borderRadius: .zero,
         borderSide: BorderSide(color: Colors.blue)
