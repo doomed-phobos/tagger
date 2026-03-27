@@ -64,7 +64,7 @@ class Database {
       }
     }))
     .andThen(() => TaskOption.tryCatch(() async {
-      var artist_tags = <ArtistTag>[];
+      HashSet<ArtistTag> new_artist_tags = HashSet();
       var new_tags = <Tag>[];
 
       for (final tag in artist_entry.$2) {
@@ -73,7 +73,7 @@ class Database {
         if (!_map_tags.containsKey(tag_id)) {
           new_tags.add(Tag(id: tag_id, name:tag.$1));
         }
-        artist_tags.add(
+        new_artist_tags.add(
           ArtistTag(
             tag_id: tag_id,
             image_url: NonEmptyString.unsafeMake("$_directory_path/images/${artist_entry.$1.value}-${tag.$1.value}")));
@@ -89,7 +89,23 @@ class Database {
       await File("$_directory_path/tags").writeAsBytes(packer.takeBytes());
       }
 
-      final new_artist = Artist(name: artist_entry.$1, tags: artist_tags, urls: artist_entry.$3.toList());
+      // Disposing Image that doesn't exist anymore
+      _map_artists.lookup(artist_entry.$1)
+      .match(() {},
+        (i) {
+          var image_url_to_remove = <String>[];
+          for (final artist_tag in artists.get(i).tags) {
+            if (!new_artist_tags.contains(artist_tag)) {
+              image_url_to_remove.add(artist_tag.image_url.value);
+            }
+          }
+
+          for (final url in image_url_to_remove) {
+            File(url).deleteSync();
+          }
+        });
+
+      final new_artist = Artist(name: artist_entry.$1, tags: new_artist_tags.toList(), urls: artist_entry.$3.toList());
       {
       final packer = Packer();
       _map_artists.lookup(artist_entry.$1)
