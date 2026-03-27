@@ -6,13 +6,20 @@ ThemeData get_app_theme_data() {
     inputDecorationTheme: InputDecorationTheme(
       hintStyle: TextStyle(color: Colors.grey[600]),
       border: .none,
-      contentPadding: EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      contentPadding: EdgeInsets.all(5),
       focusedBorder: OutlineInputBorder(
         borderRadius: .zero,
-        borderSide: BorderSide(color: Colors.blue)
+        borderSide: BorderSide(color: Colors.blue),
       ),
       filled: true,
       fillColor: Colors.grey[900],
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: .zero,
+        tapTargetSize: .shrinkWrap,
+        padding: .all(5),
+      ),
     ),
   );
 }
@@ -25,15 +32,7 @@ ButtonStyle get_tag_style([Color? borderColor]) {
     padding: .symmetric(vertical: 4, horizontal: 8),
     tapTargetSize: .shrinkWrap,
     minimumSize: .zero,
-    textStyle: TextStyle(fontSize: 12)
-  );
-}
-
-ButtonStyle get_button_icon_style() {
-  return OutlinedButton.styleFrom(
-    minimumSize: .zero,
-    tapTargetSize: .shrinkWrap,
-    padding: .all(5)
+    textStyle: TextStyle(fontSize: 12),
   );
 }
 
@@ -47,8 +46,5 @@ TextStyle get_link_style() {
 }
 
 TextStyle get_artist_name_style() {
-  return TextStyle(
-    fontSize: 16,
-    fontWeight: .bold
-  );
+  return TextStyle(fontSize: 16, fontWeight: .bold);
 }
