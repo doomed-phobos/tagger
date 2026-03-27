@@ -1,36 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:tagger/database.dart';
 import 'package:tagger/serializer.dart';
 import 'package:tagger/theme.dart';
 import 'package:fpdart/fpdart.dart' as fp;
 
-final vec_tags = [
-  Tag(id: 0, name: .unsafeMake("Tag 1")),
-  Tag(id: 1, name: .unsafeMake("Tag 2")),
-  Tag(id: 2, name: .unsafeMake("Tag 3")),
-  Tag(id: 3, name: .unsafeMake("Tag 4")),
-  Tag(id: 4, name: .unsafeMake("Tag 5")),
-  Tag(id: 5, name: .unsafeMake("Tag 6")),
-];
+class HomePage extends StatelessWidget {
+  final Database _database;
 
-final test_tags = {
-  0: vec_tags[0],
-  1: vec_tags[1],
-  2: vec_tags[2],
-  3: vec_tags[3],
-  4: vec_tags[4],
-  5: vec_tags[5],
-};
-
-class ArtistItem extends StatefulWidget {
-  final Artist artist;
-
-  const ArtistItem(this.artist, {super.key});
+  const HomePage(this._database, {super.key});
 
   @override
-  _ArtistItem createState() => _ArtistItem();
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: .start,
+      children: [
+        Expanded(
+          flex: 0,
+          child: TextField(
+            decoration: InputDecoration(hintText: "Search by..."),
+          ),
+        ),
+        SizedBox(height: 10),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: _database.artists
+                  .map((a) => _ArtistItem(_database, a))
+                  .toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _ArtistItem extends State<ArtistItem> {
+class _ArtistItem extends StatefulWidget {
+  final Database database;
+  final Artist artist;
+
+  const _ArtistItem(this.database, this.artist);
+
+  @override
+  createState() => _ArtistItemState();
+}
+
+class _ArtistItemState extends State<_ArtistItem> {
   fp.Option<int> selectedItem = fp.none();
 
   @override
@@ -61,7 +76,26 @@ class _ArtistItem extends State<ArtistItem> {
     return Column(
       crossAxisAlignment: .start,
       children: [
-        Text(widget.artist.name.value, style: get_artist_name_style()),
+        Padding(
+          padding: .only(left: 8),
+          child: Row(
+            mainAxisAlignment: .spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  widget.artist.name.value,
+                  style: get_artist_name_style(),
+                ),
+              ),
+              Row(
+                children: [
+                  IconButton(onPressed: () {}, icon: Icon(Icons.edit)),
+                  IconButton(onPressed: () {}, icon: Icon(Icons.delete)),
+                ],
+              ),
+            ],
+          ),
+        ),
         Table(
           columnWidths: {0: FlexColumnWidth(1), 1: FlexColumnWidth(5)},
           children: [
@@ -76,24 +110,28 @@ class _ArtistItem extends State<ArtistItem> {
                   child: Wrap(
                     spacing: 8.0,
                     runSpacing: 8.0,
-                    children: widget.artist.tags.mapWithIndex((e, i) {
-                      final tag = test_tags[e.tag_id];
-                      assert(tag != null);
-
-                      return OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            selectedItem = fp.some(i);
-                          });
-                        },
-                        style: get_tag_style(
-                          selectedItem.getOrElse(() => -1) == i
-                              ? Colors.blue
-                              : Colors.grey,
-                        ),
-                        child: Text(tag!.name.value),
-                      );
-                    }).toList(),
+                    children: widget.artist.tags
+                        .mapWithIndex(
+                          (artist_tag, i) => widget.database
+                              .get_tag_by_id(artist_tag.tag_id)
+                              .map<Widget>(
+                                (tag) => OutlinedButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      selectedItem = fp.some(i);
+                                    });
+                                  },
+                                  style: get_tag_style(
+                                    selectedItem.getOrElse(() => -1) == i
+                                        ? Colors.blue
+                                        : null,
+                                  ),
+                                  child: Text(tag.name.value),
+                                ),
+                              ),
+                        )
+                        .sequenceOption()
+                        .getOrElse(List<Widget>.empty),
                   ),
                 ),
               ],
