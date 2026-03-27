@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:xxh3/xxh3.dart';
 import 'packer_extension.dart';
 import 'package:messagepack/messagepack.dart';
 
@@ -10,14 +12,14 @@ class NonEmptyString extends Equatable {
   NonEmptyString._(this.value) : assert(value.isNotEmpty);
 
   @override
-  // TODO: implement props
   List<Object?> get props => [value];
 
-  // TODO: Just for test!!!!!!!!!
   static NonEmptyString unsafeMake(String value) {
     assert(!const bool.fromEnvironment("dart.vm.product"));
     return NonEmptyString._(value);
   }
+
+  int generateHash() => xxh3(utf8.encode(value));
 
   static Option<NonEmptyString> makeFromString(String value) {
     final trimmed = value.trim();
@@ -55,7 +57,7 @@ class Artist {
 
   Artist({required this.name, this.tags = const [], this.urls = const []});
 
-  void toPacker(Packer packer) {
+  void writeIntoPacker(Packer packer) {
     packer.packString(name.value);
     packer.packInt(tags.length);
     for (var tag in tags) {
@@ -69,7 +71,7 @@ class Artist {
 
   Uint8List toBytes() {
     final packer = Packer();
-    toPacker(packer);
+    writeIntoPacker(packer);
     return packer.takeBytes();
   }
 
@@ -95,6 +97,11 @@ class Tag {
   final NonEmptyString name;
 
   Tag({required this.id, required this.name});
+
+  void writeIntoPacker(Packer packer) {
+    packer.packInt(id);
+    packer.packString(name.value);
+  }
 
   static Option<Tag> makeFromUnpacker(Unpacker unpacker) => unpacker
     .toOptionInt()

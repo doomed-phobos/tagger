@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:tagger/add_page.dart';
 import 'package:tagger/bootstrap.dart';
@@ -6,11 +8,16 @@ import 'package:tagger/serializer.dart';
 import 'package:tagger/theme.dart';
 import 'package:fpdart/fpdart.dart' as fp;
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   final Database _database;
 
   const HomePage(this._database, {super.key});
 
+  @override
+  createState() => _HomePage();
+}
+
+class _HomePage extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -33,8 +40,8 @@ class HomePage extends StatelessWidget {
         Expanded(
           child: SingleChildScrollView(
             child: Column(
-              children: _database.artists
-                  .map((a) => _ArtistItem(_database, a))
+              children: widget._database.artists
+                  .map((a) => _ArtistItem(widget._database, a))
                   .toList(),
             ),
           ),
@@ -56,7 +63,8 @@ class HomePage extends StatelessWidget {
       Navigator.pop(context);
 
       await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (context) => bootstrap(AddPage(null, _database))));
+        .push(MaterialPageRoute(builder: (context) => bootstrap(AddPage(null, widget._database))))
+        .whenComplete(() => setState(() {}));
     }
   }
 }
@@ -85,10 +93,17 @@ class _ArtistItemState extends State<_ArtistItem> {
         Expanded(
           flex: 1,
           child: SizedBox(
-            child: Image.network(
-              fit: .fitWidth,
-              widget.artist.tags[i].image_url.value,
-            ),
+            child: FutureBuilder<fp.Option<File>>(
+              future: fp.TaskOption.tryCatch(() async => File(widget.artist.tags[i].image_url.value)).run(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return CircularProgressIndicator();
+
+                return snapshot.data!.match(
+                  () => Icon(Icons.broken_image),
+                  (file) => Image.file(file, fit: .fitWidth)
+                );
+              },
+            )
           ),
         ),
         content,

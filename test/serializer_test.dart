@@ -92,7 +92,7 @@ void main() {
     final packer = Packer();
     packer.packListLength(artists.length);
     for (var artist in artists) {
-      artist.toPacker(packer);
+      artist.writeIntoPacker(packer);
     }
     final bytes = packer.takeBytes();
 

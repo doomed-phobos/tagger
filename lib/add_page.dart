@@ -22,12 +22,13 @@ class AddPage extends StatefulWidget {
 }
 
 class _AddPage extends State<AddPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _controller = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+  final controller = TextEditingController();
+  var loading = false;
 
   @override
   void dispose() {
-    _controller.dispose();
+    controller.dispose();
     super.dispose();
   }
 
@@ -36,20 +37,20 @@ class _AddPage extends State<AddPage> {
     super.initState();
 
     if(widget._entry != null) {
-      _controller.text = widget._entry!.$1.value;
+      controller.text = widget._entry!.$1.value;
     }
   }  
 
   @override
   Widget build(BuildContext context) {
     return Form(
-      key: _formKey,
+      key: formKey,
       child: Column(
         children: [
           Row(
             children: [
               IconButton(
-                onPressed: () {
+                onPressed: loading ? null : () {
                   Navigator.of(context, rootNavigator: true).pop();
                 },
                 icon: Icon(Icons.arrow_circle_left_rounded),
@@ -62,9 +63,9 @@ class _AddPage extends State<AddPage> {
                 ),
               ),
               IconButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    NonEmptyString.makeFromString(_controller.text)
+                onPressed: loading ? null : () {
+                  if (formKey.currentState!.validate()) {
+                    NonEmptyString.makeFromString(controller.text)
                     .map2(
                       widget._tag_map.entries
                         .traverseOption(
@@ -73,23 +74,32 @@ class _AddPage extends State<AddPage> {
                     ).match(
                       () {
                         toastification.show(
-                                title: Text("Tag images are empty!"),
+                                title: const Text("Tag images are empty!"),
                                 type: .error,
                                 autoCloseDuration: const Duration(seconds: 3),
                               );
                       },
                       (e) {
-                        /*widget._database.add(
-                          e.$1,
-                          e.$2,
-                          e.$3
-                        );*/
+                        setState(() => loading = true);
 
-                        setState(() {
-                          widget._link_set.clear();
-                          widget._tag_map.clear();
-                          _controller.clear();
-                        });
+                        widget.
+                          _database
+                          .add(e)
+                          .match(
+                            () => toastification.show(
+                                title: Text("Failed to save: $e"),
+                                type: .error,
+                                autoCloseDuration: const Duration(seconds: 3),
+                              ),
+                            (_) => toastification.show(
+                                title: const Text("Artist saved!"),
+                                type: .success,
+                                autoCloseDuration: const Duration(seconds: 3),
+                              )
+                          )
+                          .run().whenComplete(
+                          () => setState(() => loading = false)
+                          );
                       }
                     );
                   }
@@ -105,7 +115,7 @@ class _AddPage extends State<AddPage> {
                 children: [
                   SizedBox(height: 10),
                   TextFormField(
-                    controller: _controller,
+                    controller: controller,
                     decoration: InputDecoration(
                       labelText: "Artist Name",
                       hintText: "artist 1",

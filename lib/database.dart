@@ -7,7 +7,10 @@ import 'package:messagepack/messagepack.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tagger/serializer.dart';
 
-typedef ArtistEntry = (NonEmptyString, Iterable<(NonEmptyString, Uint8List)>, Iterable<NonEmptyString>);
+typedef ArtistEntry = (
+  NonEmptyString, // Artist Name
+  List<(NonEmptyString, Uint8List)>, // Tags
+  HashSet<NonEmptyString>); // Urls
 
 class Database {
   final String _directory_path;
@@ -21,36 +24,120 @@ class Database {
   
   Database._(this._directory_path, this._artists, this._tags, this._map_artists, this._map_tags);
 
-  Option<Tag> get_tag_by_id(int id) => _map_tags.lookup(id).map((i) => _tags[i]); 
+  Option<Tag> get_tag_by_id(int id) => _map_tags.lookup(id).map((i) => _tags[i]);
 
-  /*void add(
-    NonEmptyString artist_name,
-    Iterable<(NonEmptyString, Uint8List)> tags,
-    Iterable<NonEmptyString> urls) {
-    var artist_tags = <ArtistTag>[];
-    for(var e in tags) {
-      final tag_id = e.$1.hashCode;
-      if (!_map_tags.containsKey(tag_id)) {
-        _tags.add(Tag(id: tag_id, name:e.$1));
-        _map_tags[tag_id] = _tags.length-1;
+  TaskOption<void> add(ArtistEntry artist_entry) => TaskOption
+    .tryCatch(() async => await Directory("$_directory_path/images").create(recursive: true))
+    .andThen(() => TaskOption.tryCatch(() async { // Saving images
+      for (final tag in artist_entry.$2) {
+        await File("$_directory_path/images/${artist_entry.$1.value}-${tag.$1.value}").writeAsBytes(tag.$2);
       }
-      artist_tags.add(ArtistTag(tag_id: tag_id, image_url: NonEmptyString.unsafeMake("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRdUY6-53NESEHhJDAyfXsJigOm9_okUAsgjw&s")));
-    }
+    }))
+    .andThen(() => TaskOption.tryCatch(() async {
+      var artist_tags = <ArtistTag>[];
+      var new_tags = <Tag>[];
 
-    final artist = Artist(name: artist_name, tags: artist_tags, urls: urls.toList());
-    _map_artists.lookup(artist_name)
+      for (final tag in artist_entry.$2) {
+        final tag_id = tag.$1.generateHash();
+
+        if (!_map_tags.containsKey(tag_id)) {
+          new_tags.add(Tag(id: tag_id, name:tag.$1));
+        }
+        artist_tags.add(
+          ArtistTag(
+            tag_id: tag_id,
+            image_url: NonEmptyString.unsafeMake("$_directory_path/images/${artist_entry.$1.value}-${tag.$1.value}")));
+      }
+
+      {
+      final packer = Packer();
+      packer.packListLength(tags.length + new_tags.length);
+      for (final tag in Iterable<Tag>.empty().followedBy(tags).followedBy(new_tags)) {
+        tag.writeIntoPacker(packer);
+      }
+
+      await File("$_directory_path/tags").writeAsBytes(packer.takeBytes());
+      }
+
+      final new_artist = Artist(name: artist_entry.$1, tags: artist_tags, urls: artist_entry.$3.toList());
+      {
+      final packer = Packer();
+      _map_artists.lookup(artist_entry.$1)
       .match(
         () {
-          _artists.add(artist);
-          _map_artists[artist_name] = _artists.length-1;
+          packer.packListLength(artists.length+1);
+          for (final artist in Iterable<Artist>.empty().followedBy(artists).followedBy([new_artist])) {
+            artist.writeIntoPacker(packer);
+          }
         },
-        (i) => _artists[i] = artist);
-  }*/
+        (j) {
+          packer.packListLength(artists.length);
+          for (var i = 0; i < artists.length; ++i) {
+            if (i == j) {
+              new_artist.writeIntoPacker(packer);
+            } else {
+              artists[i].writeIntoPacker(packer);
+            }
+          }
+        });
+      
+      await File("$_directory_path/artists").writeAsBytes(packer.takeBytes());
+      }
+
+      // Updating structures
+      for (final tag in new_tags) {
+        assert(!_map_tags.containsKey(tag.id));
+        _tags.add(tag);
+        _map_tags[tag.id] = tags.length-1;
+      }
+
+      _map_artists.lookup(artist_entry.$1)
+        .match(
+          () {
+            _artists.add(new_artist);
+            _map_artists[artist_entry.$1] = _artists.length-1;
+          },
+          (i) => _artists[i] = new_artist);
+    }))
+    .orElse(() => TaskOption(() async {
+      for (final tag in artist_entry.$2) {
+        final file = File("$_directory_path/images/${artist_entry.$1.value}-${tag.$1.value}");
+        if (await file.exists()) {
+          try {await file.delete();} catch(_) {}
+        }
+      }
+
+      {
+      final packer = Packer();
+      packer.packListLength(tags.length);
+      for (final tag in tags) {
+        tag.writeIntoPacker(packer);
+      }
+
+      try {
+        await File("$_directory_path/artists").writeAsBytes(packer.takeBytes());
+      } catch(_) {}
+      }
+
+      {
+      final packer = Packer();
+      packer.packListLength(artists.length);
+      for (final artist in artists) {
+        artist.writeIntoPacker(packer);
+      }
+
+      try {
+        await File("$_directory_path/tags").writeAsBytes(packer.takeBytes());
+      } catch(_) {}
+      }
+
+      return none();
+    }));
 
   static TaskOption<Database> make_from_data() => TaskOption(() async {
     final directory = await getApplicationDocumentsDirectory();
 
-    final artists = await TaskOption.tryCatch(() => File("${directory.path}/artist").readAsBytes())
+    final artists = await TaskOption.tryCatch(() => File("${directory.path}/artists").readAsBytes())
       .flatMap((bytes) {
         final unpacker = Unpacker(bytes);
         return List.generate(
@@ -74,8 +161,8 @@ class Database {
       .getOrElse(() => [])
       .run();
 
-    final map_tags    = HashMap<int, int>.fromIterable(tags.mapWithIndex((tag, i) => (tag.id, i)));
-    final map_artists = HashMap<NonEmptyString, int>.fromIterable(artists.mapWithIndex((artist, i) => (artist.name, i)));
+    final map_tags    = HashMap<int, int>.fromEntries(tags.mapWithIndex((tag, i) => MapEntry(tag.id, i)));
+    final map_artists = HashMap<NonEmptyString, int>.fromEntries(artists.mapWithIndex((artist, i) => MapEntry(artist.name, i)));
 
     return some(Database._(directory.path, artists, tags, map_artists, map_tags));
   });
