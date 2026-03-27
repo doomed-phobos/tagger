@@ -65,9 +65,15 @@ class _AddPage extends State<AddPage> {
                       (e) {
                         widget._database.add(
                           e.$1,
-                          e.$2.iterator,
-                          e.$3.iterator
+                          e.$2,
+                          e.$3
                         );
+
+                        setState(() {
+                          widget._link_set.clear();
+                          widget._tag_map.clear();
+                          _controller.clear();
+                        });
                       }
                     );
                   }
@@ -111,7 +117,7 @@ class _AddPage extends State<AddPage> {
 
 class _TagForm extends StatefulWidget {
   final HashMap<NonEmptyString, fp.Option<Uint8List>> tag_map;
-  final List<Tag> tags;
+  final Iterable<Tag> tags;
 
   const _TagForm(this.tag_map, this.tags);
 
@@ -130,12 +136,10 @@ class _TagFormState extends State<_TagForm> {
         crossAxisAlignment: .start,
         children: [
           Autocomplete<String>(
+            onSelected: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             optionsBuilder: (input) {
               return widget.tags
-                  .filter(
-                    (tag) =>
-                        tag.name.value.toLowerCase().startsWith(input.text),
-                  )
+                  .filter((tag) => tag.name.value.toLowerCase().startsWith(input.text))
                   .filter((tag) => !widget.tag_map.containsKey(tag.name))
                   .map((tag) => tag.name.value);
             },
@@ -166,9 +170,7 @@ class _TagFormState extends State<_TagForm> {
                         icon: Icon(Icons.add),
                       ),
                     ),
-                    validator: (value) => (value == null || value.isEmpty)
-                        ? "Tag is empty"
-                        : null,
+                    validator: (value) => (value == null || value.isEmpty) ? "Tag is empty" : null,
                   );
                 },
           ),
@@ -198,7 +200,6 @@ class _TagFormState extends State<_TagForm> {
                               setState(() => widget.tag_map.remove(e.key));
                             }
                           },
-                          style: get_button_icon_style(),
                           icon: Icon(Icons.delete),
                         ),
                       ],
@@ -366,7 +367,6 @@ class _LinkFormState extends State<_LinkForm> {
                               setState(() => widget.link_set.remove(url));
                             }
                           },
-                          style: get_button_icon_style(),
                           icon: Icon(Icons.delete),
                         ),
                       ],
