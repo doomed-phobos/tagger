@@ -11,11 +11,15 @@ import 'package:toastification/toastification.dart';
 
 class AddPage extends StatefulWidget {
   final Database _database;
-  final ArtistEntry? _entry;
-  final _tag_map = HashMap<NonEmptyString, fp.Option<Uint8List>>();
-  final _link_set = HashSet<NonEmptyString>();
+  final String? _initial_artist_name;
+  final HashMap<NonEmptyString, fp.Option<Uint8List>> _tag_map;
+  final HashSet<NonEmptyString> _link_set;
 
-  AddPage(this._entry, this._database, {super.key});
+  AddPage(ArtistEntry? entry, this._database, {super.key}) :
+    _tag_map = entry != null ? HashMap.fromIterable(entry.$2, key: (e) => e.$1, value: (e) => fp.some(e.$2)) : HashMap(),
+    _link_set = entry != null ? entry.$3 : HashSet(),
+    _initial_artist_name = entry?.$1.value;
+
 
   @override
   createState() => _AddPage();
@@ -36,8 +40,8 @@ class _AddPage extends State<AddPage> {
   void initState() {
     super.initState();
 
-    if(widget._entry != null) {
-      controller.text = widget._entry!.$1.value;
+    if(widget._initial_artist_name != null) {
+      controller.text = widget._initial_artist_name!;
     }
   }  
 

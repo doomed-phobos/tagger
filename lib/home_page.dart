@@ -7,6 +7,7 @@ import 'package:tagger/database.dart';
 import 'package:tagger/serializer.dart';
 import 'package:tagger/theme.dart';
 import 'package:fpdart/fpdart.dart' as fp;
+import 'package:toastification/toastification.dart';
 
 class HomePage extends StatelessWidget {
   final Database _database;
@@ -26,7 +27,7 @@ class HomePage extends StatelessWidget {
               hintText: "artist name...",
               labelText: "Search",
               suffixIcon: IconButton(
-                onPressed: () => go_to_add_page(context),
+                onPressed: () => _go_to_add_page(_database, context),
                 icon: Icon(Icons.add),
               )
             ),
@@ -50,20 +51,35 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  void go_to_add_page(BuildContext context) async {
+  static void _go_to_add_page(Database database, BuildContext context, [Artist? artist]) async {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => Center(child: CircularProgressIndicator())
     );
 
-    // await Future.delayed(Duration(seconds: 2)); // Simular tarea pesada
+    ArtistEntry? artist_entry = null;
+
+    if (artist != null) {
+      await database.convert_artist_to_entry(artist)
+        .match(
+          () => {
+            toastification.show(
+              title: const Text("Failed to edit tag"),
+              type: .error,
+              autoCloseDuration: const Duration(seconds: 3),
+            )
+          },
+          (e) => artist_entry = e 
+        )
+        .run();
+    }
 
     if(context.mounted) {
       Navigator.pop(context);
 
       await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (context) => bootstrap(AddPage(null, _database))));
+        .push(MaterialPageRoute(builder: (context) => bootstrap(AddPage(artist_entry, database))));
     }
   }
 }
@@ -129,7 +145,7 @@ class _ArtistItemState extends State<_ArtistItem> {
               ),
               Row(
                 children: [
-                  IconButton(onPressed: () {}, icon: Icon(Icons.edit)),
+                  IconButton(onPressed: () => HomePage._go_to_add_page(widget.database, context, widget.artist), icon: Icon(Icons.edit)),
                   IconButton(onPressed: () {
                     setState(() {});
                   }, icon: Icon(Icons.delete)),

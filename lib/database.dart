@@ -47,6 +47,13 @@ class Database {
 
   Option<Tag> get_tag_by_id(int id) => _map_tags.lookup(id).map((i) => _tags[i]);
 
+  TaskOption<ArtistEntry> convert_artist_to_entry(Artist artist) => TaskOption.tryCatch(() async => 
+    artist.tags
+      .traverseOption((art_tag) => get_tag_by_id(art_tag.tag_id).map((tag) => (tag.name, File(art_tag.image_url.value).readAsBytesSync())))
+  )
+  .flatMap((tags) => tags.toTaskOption())
+  .map((tags) => (artist.name, tags, HashSet<NonEmptyString>.from(artist.urls)));
+
   bool doesExistArtist(NonEmptyString artist_name) => _map_artists.containsKey(artist_name);
 
   TaskOption<void> add(ArtistEntry artist_entry) => TaskOption
