@@ -185,7 +185,7 @@ class _ArtistItemState extends State<_ArtistItem> {
                               .get_tag_by_id(artist_tag.tag_id)
                               .map<Widget>(
                                 (tag) => OutlinedButton(
-                                  onPressed: () {
+                                  onPressed: artist_tag.opt_image_path.isNone() ? null : () {
                                     setState(() {
                                       selectedItem = fp.some(i);
                                     });

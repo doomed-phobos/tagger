@@ -28,7 +28,9 @@ ButtonStyle get_tag_style([Color? borderColor]) {
   return OutlinedButton.styleFrom(
     side: borderColor != null ? BorderSide(color: borderColor, width: 2) : null,
     backgroundColor: Colors.grey[800],
-    foregroundColor: const Color.fromRGBO(255, 255, 255, 1),
+    disabledBackgroundColor: Colors.grey[800],
+    foregroundColor: Colors.white,
+    disabledForegroundColor: Colors.white,
     padding: .symmetric(vertical: 4, horizontal: 8),
     tapTargetSize: .shrinkWrap,
     minimumSize: .zero,
