@@ -7,9 +7,9 @@ typedef _HitomiGalleryPage = (int /*galleryId*/, int /*page*/);
 
 TaskEither<String, Uint8List> get_image_bytes_from_hitomi_url(
   String url,
-) => _get_image_url_from_hitomi_url(url).flatMap(
-  (image_url) => TaskEither(() async {
-    final uri = Uri.tryParse(image_url);
+) => _get_image_path_from_hitomi_url(url).flatMap(
+  (image_path) => TaskEither(() async {
+    final uri = Uri.tryParse(image_path);
     assert(uri != null);
     final response = await http.get(
       uri!,
@@ -28,7 +28,7 @@ TaskEither<String, Uint8List> get_image_bytes_from_hitomi_url(
   }),
 );
 
-TaskEither<String, String> _get_image_url_from_hitomi_url(String url) =>
+TaskEither<String, String> _get_image_path_from_hitomi_url(String url) =>
     _get_hitomi_gallery_page_from_url(url).match(
       () => TaskEither.left("Invalid URL"),
       (gallery_page) => TaskEither(() async {

@@ -55,7 +55,7 @@ class Database {
 
   TaskOption<ArtistEntry> convert_artist_to_entry(Artist artist) {
     return TaskOption.tryCatch(() async {
-      final opt_list = artist.tags.traverseOption((art_tag) => get_tag_by_id(art_tag.tag_id).map((tag) => (tag, art_tag.opt_image_url.map((url) => File(url.value).readAsBytesSync()))));
+      final opt_list = artist.tags.traverseOption((art_tag) => get_tag_by_id(art_tag.tag_id).map((tag) => (tag, art_tag.opt_image_path.map((url) => File(url.value).readAsBytesSync()))));
       return opt_list.map((list) =>
         HashMap<NonEmptyString, Option<Uint8List>>
           .fromIterable(
@@ -76,7 +76,7 @@ class Database {
 
           for (final artist_tag in artist.tags) {
             _unref_tag(artist_tag.tag_id);
-            artist_tag.opt_image_url.match(
+            artist_tag.opt_image_path.match(
               () {},
               (image_path) => futures.add(File(image_path.value).delete())
             );
@@ -157,7 +157,7 @@ class Database {
         final image_path = NonEmptyString.unsafeMake("$_directory_path/images/${artist_entry.$1.value}-${tag.name.value}");
         final artist_tag = ArtistTag(
           tag_id: tag.id,
-          opt_image_url: tag_entry.value.isSome() ? some(image_path) : none());
+          opt_image_path: tag_entry.value.isSome() ? some(image_path) : none());
         
         _add_tag(tag);
         new_artist_tags.add(artist_tag);
@@ -176,11 +176,11 @@ class Database {
         (artist) {
           for (final artist_tag in artist.tags) {
             if (!new_artist_tags.contains(artist_tag)) {
-              artist_tag.opt_image_url.match(
+              artist_tag.opt_image_path.match(
                 () {},
-                (image_url) {
+                (image_path) {
                   _unref_tag(artist_tag.tag_id);
-                  deleteImageFutures.add(File(image_url.value).delete());
+                  deleteImageFutures.add(File(image_path.value).delete());
                 }
               );
             }

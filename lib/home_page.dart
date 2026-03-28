@@ -103,13 +103,14 @@ class _ArtistItemState extends State<_ArtistItem> {
       flex: 3,
       child: Padding(padding: .all(6), child: buildInnerContent()),
     );
-    final children = selectedItem.match(() => [content], (i) {
+
+    /*final children = selectedItem.match(() => [content], (i) {
       return [
         Expanded(
           flex: 1,
           child: SizedBox(
             child: FutureBuilder<fp.Option<File>>(
-              future: fp.TaskOption.tryCatch(() async => File(widget.artist.tags[i].image_url.value)).run(),
+              future: fp.TaskOption.tryCatch(() async => File(widget.artist.tags[i].image_path.value)).run(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return CircularProgressIndicator();
 
@@ -123,9 +124,9 @@ class _ArtistItemState extends State<_ArtistItem> {
         ),
         content,
       ];
-    });
+    });*/
 
-    return Card(child: Row(children: children));
+    return Card(child: Row(children: [content]));
   }
 
   Widget buildInnerContent() {
@@ -148,7 +149,15 @@ class _ArtistItemState extends State<_ArtistItem> {
                   IconButton(onPressed: () => HomePage._go_to_add_page(widget.database, context, widget.artist), icon: Icon(Icons.edit)),
                   IconButton(onPressed: () async {
                     if (await show_yes_no_dialog(context, "Delete '${widget.artist.name.value}'")) {
-                      widget.database.removeArtist(widget.artist.name);
+                      await widget.database.removeArtist(widget.artist.name)
+                        .match(
+                          (e) => toastification.show(
+                              title: Text(e),
+                              type: .error,
+                              autoCloseDuration: const Duration(seconds: 3),
+                            ),
+                          (_) {}
+                        ).run();
                     }
                   }, icon: Icon(Icons.delete)),
                 ],

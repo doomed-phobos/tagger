@@ -33,16 +33,16 @@ class NonEmptyString extends Equatable {
 
 class ArtistTag extends Equatable {
   final int tag_id;
-  final Option<NonEmptyString> opt_image_url;
+  final Option<NonEmptyString> opt_image_path;
 
-  ArtistTag({required this.tag_id, required this.opt_image_url});
+  ArtistTag({required this.tag_id, required this.opt_image_path});
 
   @override
   List<Object?> get props => [tag_id];
 
   void pack(Packer packer) {
     packer.packInt(tag_id);
-    opt_image_url.match(
+    opt_image_path.match(
       () {
         packer.packBool(false);
       },
@@ -58,7 +58,7 @@ class ArtistTag extends Equatable {
     .flatMap((id) => unpacker
       .toOptionBool()
       .map((b) => b ? unpacker.toOptionString().flatMap((url) => NonEmptyString.makeFromString(url)) : none<NonEmptyString>())
-      .flatMap((opt) => some(ArtistTag(tag_id: id, opt_image_url: opt))));
+      .flatMap((opt) => some(ArtistTag(tag_id: id, opt_image_path: opt))));
 }
 
 class Artist {
