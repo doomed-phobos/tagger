@@ -86,7 +86,7 @@ class Database {
 
           _artists.removeAt(artist_name);
 
-          _removeDanglingTags();
+          _remove_dangling_tags();
 
           {
             final packer = Packer();
@@ -123,16 +123,7 @@ class Database {
     _map_reference_tags[tag_id] = _map_reference_tags[tag_id]! - 1;
   }
 
-  void _add_tag(Tag tag) {
-    if (!_tags.containsKey(tag.id)) {
-      _tags[tag.id] = tag;
-      _map_reference_tags[tag.id] = 1;
-    } else {
-      _ref_tag(tag.id);
-    }
-  }
-  
-  TaskEither<String, void> addArtist(ArtistEntry artist_entry) =>
+  TaskEither<String, void> add_artist(ArtistEntry artist_entry) =>
     TaskEither.tryCatch(
       () async {
         final dir = Directory("$_directory_path/images");
@@ -145,6 +136,7 @@ class Database {
     .andThen(() => TaskEither.tryCatch(
       () async {
       HashSet<ArtistTag> new_artist_tags = HashSet();
+      List<Tag> new_tags = [];
 
       final newImageFutures = <Future<void>>[];
       // Tags
@@ -159,7 +151,7 @@ class Database {
           tag_id: tag.id,
           opt_image_path: tag_entry.value.isSome() ? some(image_path) : none());
         
-        _add_tag(tag);
+        new_tags.add(tag);
         new_artist_tags.add(artist_tag);
 
         tag_entry.value.match(
@@ -170,9 +162,20 @@ class Database {
 
       await Future.wait(newImageFutures);
 
+      // Add new tags
+      for (final tag in new_tags) {
+        if (!_tags.containsKey(tag.id)) {
+          _tags[tag.id] = tag;
+          _map_reference_tags[tag.id] = 1;
+        } else {
+          _ref_tag(tag.id);
+        }
+      }
+
       final deleteImageFutures = <Future<void>>[];
       _artists.get(artist_entry.$1)
-      .match(() {},
+      .match(
+        () {},
         (artist) {
           for (final artist_tag in artist.tags) {
             if (!new_artist_tags.contains(artist_tag)) {
@@ -183,13 +186,16 @@ class Database {
                   deleteImageFutures.add(File(image_path.value).delete());
                 }
               );
+            } else {
+              // No self-reference
+              _unref_tag(artist_tag.tag_id);
             }
           }
         });
 
       Future.wait(deleteImageFutures);
 
-      _removeDanglingTags();
+      _remove_dangling_tags();
 
       {
         final packer = Packer();
@@ -217,15 +223,13 @@ class Database {
       (e, _) => "Failed to save data: $e"
     ));
 
-  void _removeDanglingTags() async {
+  void _remove_dangling_tags() {
     final idsToRemove = _map_reference_tags
       .entries
       .where((e) => e.value <= 0)
       .map((e) => e.key)
       .toList();
 
-    // FIXME: La eliminación de tags provoca que los índices se muevan
-    // por lo que los mapas ya no apuntan a donde debería
     for (final id in idsToRemove) {
       _tags.remove(id);
       _map_reference_tags.remove(id);

@@ -82,7 +82,7 @@ class _AddPage extends State<AddPage> {
                       },
                       (e) async {
                         if (widget._database.doesExistArtist(e.$1) &&
-                          !await show_yes_no_dialog(context, "Artist '${e.$1.value}' exists. Overwrite?")) {
+                          !await show_yes_no_dialog(context, "Save", "Artist '${e.$1.value}' exists. Overwrite?")) {
                             return;
                         }
 
@@ -90,7 +90,7 @@ class _AddPage extends State<AddPage> {
 
                         await widget.
                           _database
-                          .addArtist(e)
+                          .add_artist(e)
                           .match(
                             (e) => toastification.show(
                                     title: const Text("Failed to save artist"),
@@ -232,6 +232,7 @@ class _TagFormState extends State<_TagForm> {
                           onPressed: () async {
                             final confirm = await show_yes_no_dialog(
                               context,
+                              "Delete Tag",
                               'Delete Tag "${e.key.value}"?',
                             );
                             if (confirm) {
@@ -384,7 +385,7 @@ class _LinkFormState extends State<_LinkForm> {
               ),
             ),
             validator: (value) =>
-                (value == null || value.isEmpty) ? "Tag is empty" : null,
+                (value == null || value.isEmpty) ? "Link is empty" : null,
           ),
           SizedBox(height: 10),
           Wrap(
@@ -392,9 +393,14 @@ class _LinkFormState extends State<_LinkForm> {
             spacing: 8,
             children: widget.link_set
                 .map(
-                  (url) => OutlinedButton(
+                  (url) => TextButton(
                     onPressed: () {},
-                    style: get_tag_style(),
+                    style: TextButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: .zero
+                      ),
+                      foregroundColor: Colors.blue
+                    ),
                     child: Row(
                       mainAxisSize: .min,
                       children: [
@@ -404,6 +410,7 @@ class _LinkFormState extends State<_LinkForm> {
                           onPressed: () async {
                             final confirm = await show_yes_no_dialog(
                               context,
+                              "Delete Link",
                               'Delete "${url.value}"?',
                             );
                             if (confirm) {

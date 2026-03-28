@@ -51,7 +51,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  static void _go_to_add_page(Database database, BuildContext context, [Artist? artist]) async {
+  static Future<void> _go_to_add_page(Database database, BuildContext context, [Artist? artist]) async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -104,13 +104,15 @@ class _ArtistItemState extends State<_ArtistItem> {
       child: Padding(padding: .all(6), child: buildInnerContent()),
     );
 
-    /*final children = selectedItem.match(() => [content], (i) {
+    final children = selectedItem
+      .flatMap((i) => widget.artist.tags.elementAtOption(i))
+      .flatMap((artist_tag) => artist_tag.opt_image_path).match(() => [content], (path) {
       return [
         Expanded(
           flex: 1,
           child: SizedBox(
             child: FutureBuilder<fp.Option<File>>(
-              future: fp.TaskOption.tryCatch(() async => File(widget.artist.tags[i].image_path.value)).run(),
+              future: fp.TaskOption.tryCatch(() async => File(path.value)).run(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return CircularProgressIndicator();
 
@@ -124,9 +126,9 @@ class _ArtistItemState extends State<_ArtistItem> {
         ),
         content,
       ];
-    });*/
+    });
 
-    return Card(child: Row(children: [content]));
+    return Card(child: Row(children: children));
   }
 
   Widget buildInnerContent() {
@@ -148,7 +150,7 @@ class _ArtistItemState extends State<_ArtistItem> {
                 children: [
                   IconButton(onPressed: () => HomePage._go_to_add_page(widget.database, context, widget.artist), icon: Icon(Icons.edit)),
                   IconButton(onPressed: () async {
-                    if (await show_yes_no_dialog(context, "Delete '${widget.artist.name.value}'")) {
+                    if (await show_yes_no_dialog(context, "Delete", "Delete '${widget.artist.name.value}'")) {
                       await widget.database.removeArtist(widget.artist.name)
                         .match(
                           (e) => toastification.show(
