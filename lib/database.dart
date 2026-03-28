@@ -10,7 +10,7 @@ import 'package:tagger/serializer.dart';
 
 typedef ArtistEntry = (
   NonEmptyString, // Artist Name
-  List<(NonEmptyString, Uint8List)>, // Tags
+  HashMap<NonEmptyString, Option<Uint8List>>, // Tags
   HashSet<NonEmptyString>); // Urls
 
 class _ArtistList with ChangeNotifier {
@@ -53,48 +53,65 @@ class Database {
 
   bool doesExistArtist(NonEmptyString artist_name) => _artists.contains(artist_name);
 
-  TaskOption<ArtistEntry> convert_artist_to_entry(Artist artist) => TaskOption.tryCatch(() async => 
-    artist.tags
-      .traverseOption((art_tag) => get_tag_by_id(art_tag.tag_id).map((tag) => (tag.name, File(art_tag.image_url.value).readAsBytesSync())))
-  )
-  .flatMap((tags) => tags.toTaskOption())
-  .map((tags) => (artist.name, tags, HashSet<NonEmptyString>.from(artist.urls)));
-
-  Future<void> removeArtist(NonEmptyString artist_name) async {
-    _artists.get(artist_name).match(
-      () {},
-      (artist) async {
-        for (final artist_tag in artist.tags) {
-          _unref_tag(artist_tag.tag_id);
-          await File(artist_tag.image_url.value).delete();
-        }
-
-        _artists.removeAt(artist_name);
-
-        _removeDanglingTags();
-
-        {
-          final packer = Packer();
-          packer.packListLength(_tags.length);
-          for (final tag in tags) {
-            tag.writeIntoPacker(packer);
-          }
-
-          await File("$_directory_path/tags").writeAsBytes(packer.takeBytes());
-        }
-
-        {
-          final packer = Packer();
-          packer.packListLength(_artists.length);
-          for (final artist in all_artists()) {
-            artist.writeIntoPacker(packer);
-          }
-          
-          await File("$_directory_path/artists").writeAsBytes(packer.takeBytes());
-        }
-      }
-    );
+  TaskOption<ArtistEntry> convert_artist_to_entry(Artist artist) {
+    return TaskOption.tryCatch(() async {
+      final opt_list = artist.tags.traverseOption((art_tag) => get_tag_by_id(art_tag.tag_id).map((tag) => (tag, art_tag.opt_image_url.map((url) => File(url.value).readAsBytesSync()))));
+      return opt_list.map((list) =>
+        HashMap<NonEmptyString, Option<Uint8List>>
+          .fromIterable(
+            list,
+            key: (e) => e.$1.name,
+            value: (e) => e.$2));
+    })
+    .flatMap((tags) => tags.toTaskOption())
+    .map((tags) => (artist.name, tags, HashSet<NonEmptyString>.from(artist.urls)));
   }
+  
+  TaskEither<String, void> removeArtist(NonEmptyString artist_name) => TaskEither.tryCatch(
+    () async {
+      _artists.get(artist_name).match(
+        () {},
+        (artist) async {
+          final futures = <Future<void>>[];
+
+          for (final artist_tag in artist.tags) {
+            _unref_tag(artist_tag.tag_id);
+            artist_tag.opt_image_url.match(
+              () {},
+              (image_path) => futures.add(File(image_path.value).delete())
+            );
+          }
+
+          await Future.wait(futures);
+
+          _artists.removeAt(artist_name);
+
+          _removeDanglingTags();
+
+          {
+            final packer = Packer();
+            packer.packListLength(_tags.length);
+            for (final tag in tags) {
+              tag.writeIntoPacker(packer);
+            }
+
+            await File("$_directory_path/tags").writeAsBytes(packer.takeBytes());
+          }
+
+          {
+            final packer = Packer();
+            packer.packListLength(_artists.length);
+            for (final artist in all_artists()) {
+              artist.writeIntoPacker(packer);
+            }
+            
+            await File("$_directory_path/artists").writeAsBytes(packer.takeBytes());
+          }
+        }
+      );
+    },
+    (e, _) => "Failed to remove artist $e"
+  );
 
   void _ref_tag(int tag_id) {
     assert(_map_reference_tags[tag_id] != null);
@@ -115,67 +132,90 @@ class Database {
     }
   }
   
-  // TODO: Allow exceptions only for check if it's necessary rollback
-  Future<void> addArtist(ArtistEntry artist_entry) async {
-    final dir = Directory("$_directory_path/images");
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-
-    HashSet<ArtistTag> new_artist_tags = HashSet();
-
-    // Tags
-    for (final tag_entry in artist_entry.$2) {
-      final tag = Tag(
-        id: tag_entry.$1.generateHash(),
-        name: tag_entry.$1
-      );
-      final artist_tag = ArtistTag(
-        tag_id: tag.id,
-        image_url: NonEmptyString.unsafeMake("$_directory_path/images/${artist_entry.$1.value}-${tag.name.value}"));
-
-      _add_tag(tag);
-      new_artist_tags.add(artist_tag);
-     
-      await File(artist_tag.image_url.value).writeAsBytes(tag_entry.$2);
-    }
-    
-    _artists.get(artist_entry.$1)
-    .match(() {},
-      (artist) {
-        for (final artist_tag in artist.tags) {
-          if (!new_artist_tags.contains(artist_tag)) {
-            _unref_tag(artist_tag.tag_id);
-            File(artist_tag.image_url.value).deleteSync();
-          }
+  TaskEither<String, void> addArtist(ArtistEntry artist_entry) =>
+    TaskEither.tryCatch(
+      () async {
+        final dir = Directory("$_directory_path/images");
+        if (!await dir.exists()) {
+          await dir.create(recursive: true);
         }
-      });
+      },
+      (e, _) => "Failed to create images directory: $e"
+    )
+    .andThen(() => TaskEither.tryCatch(
+      () async {
+      HashSet<ArtistTag> new_artist_tags = HashSet();
 
-    _removeDanglingTags();
+      final newImageFutures = <Future<void>>[];
+      // Tags
+      for (final tag_entry in artist_entry.$2.entries) {
+        final tag = Tag(
+          id: tag_entry.key.generateHash(),
+          name: tag_entry.key
+        );
 
-    {
-      final packer = Packer();
-      packer.packListLength(_tags.length);
-      for (final tag in tags) {
-        tag.writeIntoPacker(packer);
+        final image_path = NonEmptyString.unsafeMake("$_directory_path/images/${artist_entry.$1.value}-${tag.name.value}");
+        final artist_tag = ArtistTag(
+          tag_id: tag.id,
+          opt_image_url: tag_entry.value.isSome() ? some(image_path) : none());
+        
+        _add_tag(tag);
+        new_artist_tags.add(artist_tag);
+
+        tag_entry.value.match(
+          () {},
+          (bytes) => newImageFutures.add(File(image_path.value).writeAsBytes(bytes))
+        );
       }
 
-      await File("$_directory_path/tags").writeAsBytes(packer.takeBytes());
-    }
+      await Future.wait(newImageFutures);
 
-    final new_artist = Artist(name: artist_entry.$1, tags: new_artist_tags.toList(), urls: artist_entry.$3.toList());
-    _artists[artist_entry.$1] = new_artist;
+      final deleteImageFutures = <Future<void>>[];
+      _artists.get(artist_entry.$1)
+      .match(() {},
+        (artist) {
+          for (final artist_tag in artist.tags) {
+            if (!new_artist_tags.contains(artist_tag)) {
+              artist_tag.opt_image_url.match(
+                () {},
+                (image_url) {
+                  _unref_tag(artist_tag.tag_id);
+                  deleteImageFutures.add(File(image_url.value).delete());
+                }
+              );
+            }
+          }
+        });
 
-    {
-      final packer = Packer();
-      packer.packListLength(_artists.length);
-      for (final artist in all_artists()) {
-        artist.writeIntoPacker(packer);
+      Future.wait(deleteImageFutures);
+
+      _removeDanglingTags();
+
+      {
+        final packer = Packer();
+        packer.packListLength(_tags.length);
+        for (final tag in tags) {
+          tag.writeIntoPacker(packer);
+        }
+
+        await File("$_directory_path/tags").writeAsBytes(packer.takeBytes());
       }
-      
-      await File("$_directory_path/artists").writeAsBytes(packer.takeBytes());
-    }
-  }
+
+      final new_artist = Artist(name: artist_entry.$1, tags: new_artist_tags.toList(), urls: artist_entry.$3.toList());
+      _artists[artist_entry.$1] = new_artist;
+
+      {
+        final packer = Packer();
+        packer.packListLength(_artists.length);
+        for (final artist in all_artists()) {
+          artist.writeIntoPacker(packer);
+        }
+        
+        await File("$_directory_path/artists").writeAsBytes(packer.takeBytes());
+      }
+      },
+      (e, _) => "Failed to save data: $e"
+    ));
 
   void _removeDanglingTags() async {
     final idsToRemove = _map_reference_tags
