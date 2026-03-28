@@ -38,11 +38,10 @@ class HomePage extends StatelessWidget {
         Expanded(
           child: SingleChildScrollView(
             child: ListenableBuilder(
-              listenable: _database.artists,
+              listenable: _database.get_artists_notifier(),
               builder: (builder, _) => Column(
                 children: _database
-                  .artists
-                  .iterable
+                  .all_artists()
                   .map((a) => _ArtistItem(_database, a))
                   .toList(),
               ))

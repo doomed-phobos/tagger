@@ -13,45 +13,45 @@ typedef ArtistEntry = (
   List<(NonEmptyString, Uint8List)>, // Tags
   HashSet<NonEmptyString>); // Urls
 
-class ArtistList with ChangeNotifier {
-  final List<Artist> _list;
+class _ArtistList with ChangeNotifier {
+  final HashMap<NonEmptyString, Artist> container;
 
-  ArtistList(this._list);
+  _ArtistList(this.container);
 
-  int get length => _list.length;
-  Iterable<Artist> get iterable => _list;
+  int get length => container.length;
 
-  void add(Artist artist) {
-    _list.add(artist);
+  void operator[]=(NonEmptyString key, Artist value) {
+    container[key] = value;
     notifyListeners();
   }
 
-  void update(int index, Artist artist) {
-    _list[index] = artist;
+  Option<Artist> get(NonEmptyString name) => container.lookup(name);
+
+  bool contains(NonEmptyString name) => container.containsKey(name);
+
+  void removeAt(NonEmptyString name) {
+    container.remove(name);
     notifyListeners();
   }
-
-  void removeAt(int index) {
-    _list.removeAt(index);
-    notifyListeners();
-  }
-
-  Artist get(int index) => _list[index];
 }
 
 class Database {
   final String _directory_path;
-  final ArtistList artists;
-  final List<Tag> _tags;
-  final HashMap<NonEmptyString/* artist_name */, int /* index in list */> _map_artists;
-  final HashMap<int /* tag_id */, int /* index in list */> _map_tags;
+  final _ArtistList _artists;
+  final HashMap<int, Tag> _tags; // TODO: Instead of List, is slow???
   final HashMap<int /* tag_id */, int /* rfc_count */> _map_reference_tags;
 
-  List<Tag> get tags => List.unmodifiable(_tags);
+  Iterable<Tag> get tags => List.unmodifiable(_tags.values);
   
-  Database._(this._directory_path, this.artists, this._tags, this._map_artists, this._map_tags, this._map_reference_tags);
+  Database._(this._directory_path, this._artists, this._tags, this._map_reference_tags);
 
-  Option<Tag> get_tag_by_id(int id) => _map_tags.lookup(id).map((i) => _tags[i]);
+  Option<Tag> get_tag_by_id(int id) => _tags.lookup(id);
+
+  ChangeNotifier get_artists_notifier() => _artists;
+
+  Iterable<Artist> all_artists() => _artists.container.values;
+
+  bool doesExistArtist(NonEmptyString artist_name) => _artists.contains(artist_name);
 
   TaskOption<ArtistEntry> convert_artist_to_entry(Artist artist) => TaskOption.tryCatch(() async => 
     artist.tags
@@ -60,43 +60,40 @@ class Database {
   .flatMap((tags) => tags.toTaskOption())
   .map((tags) => (artist.name, tags, HashSet<NonEmptyString>.from(artist.urls)));
 
-  bool doesExistArtist(NonEmptyString artist_name) => _map_artists.containsKey(artist_name);
-
   Future<void> removeArtist(NonEmptyString artist_name) async {
-    if (!doesExistArtist(artist_name)) {
-      return;
-    }
+    _artists.get(artist_name).match(
+      () {},
+      (artist) async {
+        for (final artist_tag in artist.tags) {
+          _unref_tag(artist_tag.tag_id);
+          await File(artist_tag.image_url.value).delete();
+        }
 
-    int artist_index = _map_artists[artist_name]!;
-    for (final artist_tag in artists.get(artist_index).tags) {
-      _unref_tag(artist_tag.tag_id);
-      await File(artist_tag.image_url.value).delete();
-    }
+        _artists.removeAt(artist_name);
 
-    _map_artists.remove(artist_name);
-    artists.removeAt(artist_index);
+        _removeDanglingTags();
 
-    _removeDanglingTags();
+        {
+          final packer = Packer();
+          packer.packListLength(_tags.length);
+          for (final tag in tags) {
+            tag.writeIntoPacker(packer);
+          }
 
-    {
-      final packer = Packer();
-      packer.packListLength(_tags.length);
-      for (final tag in _tags) {
-        tag.writeIntoPacker(packer);
+          await File("$_directory_path/tags").writeAsBytes(packer.takeBytes());
+        }
+
+        {
+          final packer = Packer();
+          packer.packListLength(_artists.length);
+          for (final artist in all_artists()) {
+            artist.writeIntoPacker(packer);
+          }
+          
+          await File("$_directory_path/artists").writeAsBytes(packer.takeBytes());
+        }
       }
-
-      await File("$_directory_path/tags").writeAsBytes(packer.takeBytes());
-    }
-
-    {
-      final packer = Packer();
-      packer.packListLength(artists.length);
-      for (final artist in artists.iterable) {
-        artist.writeIntoPacker(packer);
-      }
-      
-      await File("$_directory_path/artists").writeAsBytes(packer.takeBytes());
-    }
+    );
   }
 
   void _ref_tag(int tag_id) {
@@ -110,10 +107,9 @@ class Database {
   }
 
   void _add_tag(Tag tag) {
-    if (!_map_tags.containsKey(tag.id)) {
-      _tags.add(tag);
+    if (!_tags.containsKey(tag.id)) {
+      _tags[tag.id] = tag;
       _map_reference_tags[tag.id] = 1;
-      _map_tags[tag.id] = tags.length-1;
     } else {
       _ref_tag(tag.id);
     }
@@ -144,10 +140,10 @@ class Database {
       await File(artist_tag.image_url.value).writeAsBytes(tag_entry.$2);
     }
     
-    _map_artists.lookup(artist_entry.$1)
+    _artists.get(artist_entry.$1)
     .match(() {},
-      (i) {
-        for (final artist_tag in artists.get(i).tags) {
+      (artist) {
+        for (final artist_tag in artist.tags) {
           if (!new_artist_tags.contains(artist_tag)) {
             _unref_tag(artist_tag.tag_id);
             File(artist_tag.image_url.value).deleteSync();
@@ -160,7 +156,7 @@ class Database {
     {
       final packer = Packer();
       packer.packListLength(_tags.length);
-      for (final tag in _tags) {
+      for (final tag in tags) {
         tag.writeIntoPacker(packer);
       }
 
@@ -168,37 +164,17 @@ class Database {
     }
 
     final new_artist = Artist(name: artist_entry.$1, tags: new_artist_tags.toList(), urls: artist_entry.$3.toList());
+    _artists[artist_entry.$1] = new_artist;
+
     {
       final packer = Packer();
-      _map_artists.lookup(artist_entry.$1)
-      .match(
-        () {
-          packer.packListLength(artists.length+1);
-          for (final artist in Iterable<Artist>.empty().followedBy(artists.iterable).followedBy([new_artist])) {
-            artist.writeIntoPacker(packer);
-          }
-        },
-        (j) {
-          packer.packListLength(artists.length);
-          for (var i = 0; i < artists.length; ++i) {
-            if (i == j) {
-              new_artist.writeIntoPacker(packer);
-            } else {
-              artists.get(i).writeIntoPacker(packer);
-            }
-          }
-        });
+      packer.packListLength(_artists.length);
+      for (final artist in all_artists()) {
+        artist.writeIntoPacker(packer);
+      }
       
       await File("$_directory_path/artists").writeAsBytes(packer.takeBytes());
     }
-
-    _map_artists.lookup(artist_entry.$1)
-      .match(
-        () {
-          artists.add(new_artist);
-          _map_artists[artist_entry.$1] = artists.length-1;
-        },
-        (i) => artists.update(i, new_artist));
   }
 
   void _removeDanglingTags() async {
@@ -208,12 +184,11 @@ class Database {
       .map((e) => e.key)
       .toList();
 
+    // FIXME: La eliminación de tags provoca que los índices se muevan
+    // por lo que los mapas ya no apuntan a donde debería
     for (final id in idsToRemove) {
-      final i = _map_tags[id];
-      assert(i != null);
-      _tags.removeAt(i!);
+      _tags.remove(id);
       _map_reference_tags.remove(id);
-      _map_tags.remove(id);
     }
   }
 
@@ -244,10 +219,7 @@ class Database {
       .getOrElse(() => [])
       .run();
 
-    final map_tags    = HashMap<int, int>.fromEntries(tags.mapWithIndex((tag, i) => MapEntry(tag.id, i)));
-    final map_artists = HashMap<NonEmptyString, int>.fromEntries(artists.mapWithIndex((artist, i) => MapEntry(artist.name, i)));
     HashMap<int, int> map_reference_tags = HashMap();
-
     for (final artist in artists) {
       for (final tag in artist.tags) {
         map_reference_tags.update(
@@ -257,6 +229,11 @@ class Database {
       }
     }
 
-    return some(Database._(directory.path, ArtistList(artists), tags, map_artists, map_tags, map_reference_tags));
+    return some(
+      Database._(
+        directory.path,
+        _ArtistList(HashMap.fromIterable(artists, key: (artist) => artist.name, value: (artist) => artist)),
+        HashMap.fromIterable(tags, key: (tag) => tag.id, value: (tag) => tag),
+        map_reference_tags));
   });
 }
