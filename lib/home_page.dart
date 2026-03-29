@@ -55,23 +55,35 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePage extends State<HomePage> {
-  Timer? debounce;
-  String filter = "";
+  var search_text = "";
+  var filter_artist_name = "";
+  var filter_tag_names = <String>[];
 
-  void on_search_changed(String query) {
-    if(debounce?.isActive ?? false) debounce!.cancel();
+  void _process_search_text() {
+    final hasOnlyTags = search_text.trim().startsWith('tag:');
 
-    debounce = Timer(const Duration(milliseconds: 500), () {
-      setState(() {
-        filter = query;
-      });
+    // artist name
+    final artist_name = hasOnlyTags
+      ? ""
+      : RegExp(r'^(.*?)(?=\s*tag:|$)')
+          .firstMatch(search_text)
+          ?.group(1)
+          ?.trim() ?? "";
+
+    // tags
+    final tags = RegExp(r'tag:\s*(.*?)(?=\s*tag:|$)')
+      .allMatches(search_text)
+      .map((m) => m.group(1)!.trim())
+      .where((t) => t.isNotEmpty)
+      .toList();
+
+    debugPrint("Artist name: $artist_name");
+    debugPrint("Tags: $tags");
+
+    setState(() {
+      filter_artist_name = artist_name.trim();
+      filter_tag_names = tags;
     });
-  }
-
-  @override
-  void dispose() {
-    debounce?.cancel();
-    super.dispose();
   }
 
   @override
@@ -82,10 +94,11 @@ class _HomePage extends State<HomePage> {
         Expanded(
           flex: 0,
           child: TextField(
-            onChanged: on_search_changed,
+            onChanged: (value) => search_text = value,
             decoration: InputDecoration(
-              hintText: "artist name...",
+              hintText: 'artist name tag:tag1 tag: tag 2',
               labelText: "Search",
+              prefixIcon: IconButton(onPressed: _process_search_text, icon: Icon(Icons.search)),
               suffixIcon: IconButton(
                 onPressed: () => HomePage._go_to_add_page(widget._database, context),
                 icon: Icon(Icons.add),
@@ -100,9 +113,17 @@ class _HomePage extends State<HomePage> {
           builder: (context, _) {
             final artists = widget._database
                 .all_artists()
-                .where((a) => a.name.value.contains(filter))
+                .where((artist) => artist.name.value.contains(filter_artist_name))
+                .where((artist) => filter_tag_names.isEmpty ||
+                  artist.tags
+                    .map((e) =>widget._database.get_tag_by_id(e.tag_id).name.value)
+                    .any((name) => filter_tag_names.contains(name)))
                 .toList()
                 ..sort((a,b) => b.tags.length.compareTo(a.tags.length));
+
+            if(artists.isEmpty) {
+              return Text("Not Found");
+            }
 
             return ListView.builder(
               itemCount: artists.length,
