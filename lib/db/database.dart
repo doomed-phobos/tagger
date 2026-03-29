@@ -113,8 +113,6 @@ class Database {
     (e, _) => "Failed to remove artist $e"
   );
 
-  // FIXME: Manejar problema de referencias
-
   TaskEither<String, void> add_artist(ArtistEntry artist_entry) =>
     TaskEither.tryCatch(
       () async {

@@ -100,6 +100,7 @@ class _ArtistItemState extends State<_ArtistItem> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width * 0.5;
     final children =
       selectedTagId
       .flatMap((tag_id) => fp.Option.tryCatch(() => widget.artist.tags.firstWhere((artist_tag) => artist_tag.tag_id == tag_id)))
@@ -121,7 +122,7 @@ class _ArtistItemState extends State<_ArtistItem> {
                     () => Icon(Icons.broken_image),
                     (file) => Image.file(
                       file,
-                      fit: .fitWidth)
+                      width: width)
                   );
                 },
               )
@@ -195,7 +196,12 @@ class _ArtistItemState extends State<_ArtistItem> {
                             return OutlinedButton(
                                   onPressed: artist_tag.opt_image_path.isNone() ? null : () {
                                     setState(() {
-                                      selectedTagId = fp.some(artist_tag.tag_id);
+                                      final prev = selectedTagId.getOrElse(() => 0);
+                                      if (artist_tag.tag_id == prev) {
+                                        selectedTagId = fp.none();
+                                      } else {
+                                        selectedTagId = fp.some(artist_tag.tag_id);
+                                      }
                                     });
                                   },
                                   style: get_tag_style(
