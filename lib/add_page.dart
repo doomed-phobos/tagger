@@ -177,7 +177,7 @@ class _TagFormState extends State<_TagForm> {
             onSelected: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             optionsBuilder: (input) {
               return widget.tags
-                  .filter((tag) => tag.name.value.toLowerCase().startsWith(input.text))
+                  .filter((tag) => tag.name.value.toLowerCase().contains(input.text))
                   .filter((tag) => !widget.tag_map.containsKey(tag.name))
                   .map((tag) => tag.name.value);
             },

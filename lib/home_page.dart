@@ -101,7 +101,8 @@ class _HomePage extends State<HomePage> {
             final artists = widget._database
                 .all_artists()
                 .where((a) => a.name.value.contains(filter))
-                .toList();
+                .toList()
+                ..sort((a,b) => b.tags.length.compareTo(a.tags.length));
 
             return ListView.builder(
               itemCount: artists.length,
