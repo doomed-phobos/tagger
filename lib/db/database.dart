@@ -145,22 +145,18 @@ class Database {
                   return [...acc];
                 },
                 (opt_bytes) {
-                  if (opt_bytes.isSome() ^ prev_artist_tag.opt_image_path.isSome()) {
-                    final image_path = "$_directory_path/images/${artist_entry.$1.value}-${tag.name.value}";
-                    final artist_tag = opt_bytes.match(
-                      () {
-                        futures.add(File(image_path).delete());
-                        return prev_artist_tag.cloneWith(none());
-                      },
-                      (bytes) {
-                        futures.add(File(image_path).writeAsBytes(bytes));
-                        return prev_artist_tag.cloneWith(some(NonEmptyString.unsafeMake(image_path)));
-                      });
+                  final image_path = "$_directory_path/images/${artist_entry.$1.value}-${tag.name.value}";
+                  final artist_tag = opt_bytes.match(
+                    () {
+                      futures.add(File(image_path).delete());
+                      return prev_artist_tag.cloneWith(none());
+                    },
+                    (bytes) {
+                      futures.add(File(image_path).writeAsBytes(bytes));
+                      return prev_artist_tag.cloneWith(some(NonEmptyString.unsafeMake(image_path)));
+                    });
 
-                    return [...acc, artist_tag];
-                  }
-
-                  return [...acc, prev_artist_tag];
+                  return [...acc, artist_tag];
                 });
           });
 
