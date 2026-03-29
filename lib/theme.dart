@@ -48,5 +48,5 @@ TextStyle get_link_style() {
 }
 
 TextStyle get_artist_name_style() {
-  return TextStyle(fontSize: 16, fontWeight: .bold);
+  return TextStyle(fontSize: 18, fontWeight: .bold);
 }

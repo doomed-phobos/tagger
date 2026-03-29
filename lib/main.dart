@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tagger/bootstrap.dart';
-import 'package:tagger/database.dart';
+import 'package:tagger/db/database.dart';
 import 'package:tagger/home_page.dart';
 import 'package:toastification/toastification.dart';
 

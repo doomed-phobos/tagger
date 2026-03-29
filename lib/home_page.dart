@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tagger/add_page.dart';
 import 'package:tagger/bootstrap.dart';
-import 'package:tagger/database.dart';
+import 'package:tagger/db/database.dart';
 import 'package:tagger/dialog.dart';
-import 'package:tagger/serializer.dart';
+import 'package:tagger/db/tables.dart';
 import 'package:tagger/theme.dart';
 import 'package:fpdart/fpdart.dart' as fp;
 import 'package:toastification/toastification.dart';
@@ -63,14 +63,15 @@ class HomePage extends StatelessWidget {
     if (artist != null) {
       await database.convert_artist_to_entry(artist)
         .match(
-          () => {
+          (error) => {
             toastification.show(
               title: const Text("Failed to edit tag"),
+              description: Text(error),
               type: .error,
               autoCloseDuration: const Duration(seconds: 3),
             )
           },
-          (e) => artist_entry = e 
+          (entry) => artist_entry = entry 
         )
         .run();
     }
@@ -95,49 +96,47 @@ class _ArtistItem extends StatefulWidget {
 }
 
 class _ArtistItemState extends State<_ArtistItem> {
-  fp.Option<int> selectedItem = fp.none();
+  fp.Option<int> selectedTagId = fp.none();
 
   @override
   Widget build(BuildContext context) {
-    final content = Expanded(
-      flex: 3,
-      child: Padding(padding: .all(6), child: buildInnerContent()),
-    );
+    final children =
+      selectedTagId
+      .flatMap((tag_id) => fp.Option.tryCatch(() => widget.artist.tags.firstWhere((artist_tag) => artist_tag.tag_id == tag_id)))
+      .flatMap((tag) => tag.opt_image_path)
+      .match(
+      () => [buildInnerContent()],
+      (path) =>
+        [
+          buildInnerContent(),
+          SizedBox(height: 10),
+          Flexible(
+            child: SizedBox(
+              child: FutureBuilder<fp.Option<File>>(
+                future: fp.TaskOption.tryCatch(() async => File(path.value)).run(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return CircularProgressIndicator();
 
-    final children = selectedItem
-      .flatMap((i) => widget.artist.tags.elementAtOption(i))
-      .flatMap((artist_tag) => artist_tag.opt_image_path).match(() => [content], (path) {
-      return [
-        Expanded(
-          flex: 1,
-          child: SizedBox(
-            child: FutureBuilder<fp.Option<File>>(
-              future: fp.TaskOption.tryCatch(() async => File(path.value)).run(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return CircularProgressIndicator();
+                  return snapshot.data!.match(
+                    () => Icon(Icons.broken_image),
+                    (file) => Image.file(
+                      file,
+                      fit: .fitWidth)
+                  );
+                },
+              )
+            ),
+          )
+        ]
+      );
 
-                return snapshot.data!.match(
-                  () => Icon(Icons.broken_image),
-                  (file) => Image.file(file, fit: .fitWidth)
-                );
-              },
-            )
-          ),
-        ),
-        content,
-      ];
-    });
-
-    return Card(child: Row(children: children));
-  }
-
-  Widget buildInnerContent() {
-    return Column(
-      crossAxisAlignment: .start,
-      children: [
-        Padding(
-          padding: .only(left: 8),
-          child: Row(
+    return Card(
+      child: Padding(
+        padding: .all(5),
+        child: Column(
+        mainAxisSize: .min,
+        children: [
+          Row(
             mainAxisAlignment: .spaceBetween,
             children: [
               Flexible(
@@ -166,8 +165,15 @@ class _ArtistItemState extends State<_ArtistItem> {
               ),
             ],
           ),
-        ),
-        Table(
+          
+          ...children
+        ],
+      ))
+    );   
+  }
+
+  Widget buildInnerContent() {
+    return Table(
           columnWidths: {0: FlexColumnWidth(1), 1: FlexColumnWidth(5)},
           children: [
             TableRow(
@@ -181,28 +187,26 @@ class _ArtistItemState extends State<_ArtistItem> {
                   child: Wrap(
                     spacing: 8.0,
                     runSpacing: 8.0,
-                    children: widget.artist.tags
-                        .mapWithIndex(
-                          (artist_tag, i) => widget.database
-                              .get_tag_by_id(artist_tag.tag_id)
-                              .map<Widget>(
-                                (tag) => OutlinedButton(
+                    children:
+                      widget.artist.tags
+                        .map(
+                          (artist_tag) {
+                            final tag = widget.database.get_tag_by_id(artist_tag.tag_id);
+                            return OutlinedButton(
                                   onPressed: artist_tag.opt_image_path.isNone() ? null : () {
                                     setState(() {
-                                      selectedItem = fp.some(i);
+                                      selectedTagId = fp.some(artist_tag.tag_id);
                                     });
                                   },
                                   style: get_tag_style(
-                                    selectedItem.getOrElse(() => -1) == i
+                                    selectedTagId.getOrElse(() => 0) == tag.id
                                         ? Colors.blue
                                         : null,
                                   ),
                                   child: Text(tag.name.value),
-                                ),
-                              ),
-                        )
-                        .sequenceOption()
-                        .getOrElse(List<Widget>.empty),
+                                );
+                            }
+                        ).toList(),
                   ),
                 ),
               ],
@@ -235,8 +239,6 @@ class _ArtistItemState extends State<_ArtistItem> {
               ],
             ),
           ],
-        ),
-      ],
-    );
+        );
   }
 }

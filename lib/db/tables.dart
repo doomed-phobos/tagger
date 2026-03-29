@@ -1,9 +1,10 @@
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:xxh3/xxh3.dart';
-import 'packer_extension.dart';
+import '../packer_extension.dart';
 import 'package:messagepack/messagepack.dart';
 
 class NonEmptyString extends Equatable {
@@ -31,14 +32,14 @@ class NonEmptyString extends Equatable {
     .flatMap((name) => makeFromString(name));
 }
 
-class ArtistTag extends Equatable {
+class ArtistTag{
   final int tag_id;
   final Option<NonEmptyString> opt_image_path;
 
-  ArtistTag({required this.tag_id, required this.opt_image_path});
+  ArtistTag._({required this.tag_id, required this.opt_image_path});
 
-  @override
-  List<Object?> get props => [tag_id];
+  ArtistTag cloneWith(Option<NonEmptyString> new_opt_image_path) =>
+    ArtistTag._(tag_id: tag_id, opt_image_path: new_opt_image_path);
 
   void pack(Packer packer) {
     packer.packInt(tag_id);
@@ -53,12 +54,15 @@ class ArtistTag extends Equatable {
     );
   }
 
-  static Option<ArtistTag> makeFromUnpacker(Unpacker unpacker) => unpacker
+  static Option<ArtistTag> makeFromUnpacker(Unpacker unpacker, TagTable tag_table) => unpacker
     .toOptionInt()
-    .flatMap((id) => unpacker
+    .flatMap((tag_id) => unpacker
       .toOptionBool()
-      .map((b) => b ? unpacker.toOptionString().flatMap((url) => NonEmptyString.makeFromString(url)) : none<NonEmptyString>())
-      .flatMap((opt) => some(ArtistTag(tag_id: id, opt_image_path: opt))));
+      .map((b) => b ? unpacker.toOptionString().flatMap((image_path) => NonEmptyString.makeFromString(image_path)) : none<NonEmptyString>())
+      .flatMap((opt_image_path) {
+        return tag_table.try_get_tag(tag_id)
+          .map((tag) => tag_table._attach(tag_id, tag.name, opt_image_path));
+      }));
 }
 
 class Artist {
@@ -86,10 +90,10 @@ class Artist {
     return packer.takeBytes();
   }
 
-  static Option<Artist> makeFromUnpacker(Unpacker unpacker) => NonEmptyString
+  static Option<Artist> makeFromUnpacker(Unpacker unpacker, TagTable tag_table) => NonEmptyString
     .makeFromUnpacker(unpacker)
     .flatMap((name) => unpacker.toOptionInt()
-      .flatMap((n) => List<Option<ArtistTag>>.generate(n, (_) => ArtistTag.makeFromUnpacker(unpacker))
+      .flatMap((n) => List<Option<ArtistTag>>.generate(n, (_) => ArtistTag.makeFromUnpacker(unpacker, tag_table))
         .sequenceOption()
       )
       .flatMap((tags) => Option.tryCatch(() => unpacker.unpackList())
@@ -118,4 +122,59 @@ class Tag {
     .toOptionInt()
     .flatMap((id) => NonEmptyString.makeFromUnpacker(unpacker)
       .flatMap((name) => some(Tag(id: id, name: name))));
+}
+
+class TagTable {
+  final HashMap<int, Tag> _container = HashMap();
+  final HashMap<int, int> _ref_cnt_map = HashMap();
+
+  Tag add_tag(int id, NonEmptyString name) {
+    assert(!_container.containsKey(id));
+    assert(!_ref_cnt_map.containsKey(id));
+
+    _ref_cnt_map[id] = 0;
+    return _container[id] = Tag(id: id, name: name);
+  }
+
+  Tag get_tag(int tag_id) {
+    assert(_container.containsKey(tag_id));
+    return _container[tag_id]!;
+  }
+
+  Option<Tag> try_get_tag(int tag_id) {
+    return _container.lookup(tag_id);
+  }
+
+  Iterable<Tag> get tags => _container.values;
+
+  void remove_tag(Tag tag) {
+    _container.remove(tag.id);
+  }
+
+  ArtistTag _attach(int id, NonEmptyString tag_name, Option<NonEmptyString> opt_image_url) {
+    final tag = _container.lookup(id).getOrElse(() => add_tag(id, tag_name));
+
+    _ref_cnt_map[tag.id] = _ref_cnt_map[tag.id]! + 1;
+    return ArtistTag._(tag_id: tag.id, opt_image_path: opt_image_url);
+  }
+
+  ArtistTag attach(NonEmptyString tag_name, Option<NonEmptyString> opt_image_url) {
+    final id = tag_name.generateHash();
+    return _attach(id, tag_name, opt_image_url);
+  }
+
+  
+  void detach(ArtistTag artist_tag) {
+    final tag = _container[artist_tag.tag_id];
+    assert(tag != null);
+    assert(_ref_cnt_map[artist_tag.tag_id] != null);
+    
+    final cnt = (_ref_cnt_map[artist_tag.tag_id] = _ref_cnt_map[artist_tag.tag_id]! - 1);
+    assert(cnt >= 0);
+    
+    if(cnt == 0) {
+      _container.remove(artist_tag.tag_id);
+      _ref_cnt_map.remove(artist_tag.tag_id);
+    }
+  }
 }

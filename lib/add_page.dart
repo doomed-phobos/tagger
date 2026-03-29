@@ -2,10 +2,10 @@ import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:tagger/database.dart';
+import 'package:tagger/db/database.dart';
 import 'package:tagger/dialog.dart';
 import 'package:tagger/image_extractor.dart';
-import 'package:tagger/serializer.dart';
+import 'package:tagger/db/tables.dart';
 import 'package:tagger/theme.dart';
 import 'package:fpdart/fpdart.dart' as fp;
 import 'package:toastification/toastification.dart';
