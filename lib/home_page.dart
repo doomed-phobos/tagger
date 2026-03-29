@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -11,45 +12,13 @@ import 'package:tagger/theme.dart';
 import 'package:fpdart/fpdart.dart' as fp;
 import 'package:toastification/toastification.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   final Database _database;
   
   const HomePage(this._database, {super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: .start,
-      children: [
-        Expanded(
-          flex: 0,
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: "artist name...",
-              labelText: "Search",
-              suffixIcon: IconButton(
-                onPressed: () => _go_to_add_page(_database, context),
-                icon: Icon(Icons.add),
-              )
-            ),
-          ),
-        ),
-        SizedBox(height: 10),
-        Expanded(
-          child: SingleChildScrollView(
-            child: ListenableBuilder(
-              listenable: _database.get_artists_notifier(),
-              builder: (builder, _) => Column(
-                children: _database
-                  .all_artists()
-                  .map((a) => _ArtistItem(_database, a))
-                  .toList(),
-              ))
-          ),
-        ),
-      ],
-    );
-  }
+  createState() => _HomePage();
 
   static Future<void> _go_to_add_page(Database database, BuildContext context, [Artist? artist]) async {
     showDialog(
@@ -82,6 +51,64 @@ class HomePage extends StatelessWidget {
       await Navigator.of(context)
         .push(MaterialPageRoute(builder: (context) => bootstrap(AddPage(artist_entry, database))));
     }
+  }
+}
+
+class _HomePage extends State<HomePage> {
+  Timer? debounce;
+  String filter = "";
+
+  void on_search_changed(String query) {
+    if(debounce?.isActive ?? false) debounce!.cancel();
+
+    debounce = Timer(const Duration(milliseconds: 500), () {
+      setState(() {
+        filter = query;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    debounce?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: .start,
+      children: [
+        Expanded(
+          flex: 0,
+          child: TextField(
+            onChanged: on_search_changed,
+            decoration: InputDecoration(
+              hintText: "artist name...",
+              labelText: "Search",
+              suffixIcon: IconButton(
+                onPressed: () => HomePage._go_to_add_page(widget._database, context),
+                icon: Icon(Icons.add),
+              )
+            ),
+          ),
+        ),
+        SizedBox(height: 10),
+        Expanded(
+          child: SingleChildScrollView(
+            child: ListenableBuilder(
+              listenable: widget._database.get_artists_notifier(),
+              builder: (builder, _) => Column(
+                children: widget._database
+                  .all_artists()
+                  .filter((a) => a.name.value.contains(filter))
+                  .map((a) => _ArtistItem(widget._database, a))
+                  .toList(),
+              ))
+          ),
+        ),
+      ],
+    );
   }
 }
 
