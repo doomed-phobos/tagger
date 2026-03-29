@@ -96,7 +96,7 @@ class _AddPage extends State<AddPage> {
                                     title: const Text("Failed to save artist"),
                                     description: Text(e),
                                     type: .error,
-                                    autoCloseDuration: const Duration(seconds: 3),
+                                    autoCloseDuration: const Duration(seconds: 5),
                                   ),
                             (_) {
                               toastification.show(
