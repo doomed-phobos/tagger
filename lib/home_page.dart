@@ -95,17 +95,21 @@ class _HomePage extends State<HomePage> {
         ),
         SizedBox(height: 10),
         Expanded(
-          child: SingleChildScrollView(
-            child: ListenableBuilder(
-              listenable: widget._database.get_artists_notifier(),
-              builder: (builder, _) => Column(
-                children: widget._database
-                  .all_artists()
-                  .filter((a) => a.name.value.contains(filter))
-                  .map((a) => _ArtistItem(widget._database, a))
-                  .toList(),
-              ))
-          ),
+          child: ListenableBuilder(
+          listenable: widget._database.get_artists_notifier(),
+          builder: (context, _) {
+            final artists = widget._database
+                .all_artists()
+                .where((a) => a.name.value.contains(filter))
+                .toList();
+
+            return ListView.builder(
+              itemCount: artists.length,
+              itemBuilder: (context, index) =>
+                  _ArtistItem(widget._database, artists[index]),
+            );
+          },
+        )
         ),
       ],
     );
@@ -127,7 +131,6 @@ class _ArtistItemState extends State<_ArtistItem> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width * 0.5;
     final children =
       selectedTagId
       .flatMap((tag_id) => fp.Option.tryCatch(() => widget.artist.tags.firstWhere((artist_tag) => artist_tag.tag_id == tag_id)))
@@ -140,16 +143,16 @@ class _ArtistItemState extends State<_ArtistItem> {
           SizedBox(height: 10),
           Flexible(
             child: SizedBox(
-              child: FutureBuilder<fp.Option<File>>(
-                future: fp.TaskOption.tryCatch(() async => File(path.value)).run(),
+              child: FutureBuilder<fp.Option<Uint8List>>(
+                future: fp.TaskOption.tryCatch(() async => File(path.value).readAsBytes()).run(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return CircularProgressIndicator();
 
                   return snapshot.data!.match(
                     () => Icon(Icons.broken_image),
-                    (file) => Image.file(
-                      file,
-                      width: width)
+                    (bytes) => Image.memory(
+                      bytes,
+                      width: .infinity)
                   );
                 },
               )
