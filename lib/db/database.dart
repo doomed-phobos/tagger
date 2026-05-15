@@ -32,91 +32,6 @@ class Database extends _$Database {
   Database() : super(_openConnection());
 
   @override
-  MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) async {
-      await m.createAll();
-
-      await customStatement('''
-      CREATE VIRTUAL TABLE artist_fts
-      USING fts5(
-        name,
-        content='artist',
-        content_rowid='id'
-      );
-    ''');
-
-      await customStatement('''
-      CREATE TRIGGER artist_ai
-      AFTER INSERT ON artist
-      BEGIN
-        INSERT INTO artist_fts(rowid, name)
-        VALUES (new.id, new.name);
-      END;
-    ''');
-
-      await customStatement('''
-      CREATE TRIGGER artist_ad
-      AFTER DELETE ON artist
-      BEGIN
-        INSERT INTO artist_fts(artist_fts, rowid, name)
-        VALUES('delete', old.id, old.name);
-      END;
-    ''');
-
-      await customStatement('''
-      CREATE TRIGGER artist_au
-      AFTER UPDATE ON artist
-      BEGIN
-        INSERT INTO artist_fts(artist_fts, rowid, name)
-        VALUES('delete', old.id, old.name);
-
-        INSERT INTO artist_fts(rowid, name)
-        VALUES(new.id, new.name);
-      END;
-    ''');
-
-      await customStatement("""
-      CREATE VIRTUAL TABLE tag_fts USING fts5(
-        name,
-        content='tag',
-        content_rowid='id'
-      );
-
-      """);
-
-      await customStatement('''
-      CREATE TRIGGER tag_ai
-      AFTER INSERT ON tag
-      BEGIN
-        INSERT INTO tag_fts(rowid, name)
-        VALUES (new.id, new.name);
-      END;
-    ''');
-
-      await customStatement('''
-      CREATE TRIGGER tag_ad
-      AFTER DELETE ON tag
-      BEGIN
-        INSERT INTO tag_fts(tag_fts, rowid, name)
-        VALUES('delete', old.id, old.name);
-      END;
-    ''');
-
-      await customStatement('''
-      CREATE TRIGGER tag_au
-      AFTER UPDATE ON tag
-      BEGIN
-        INSERT INTO tag_fts(tag_fts, rowid, name)
-        VALUES('delete', old.id, old.name);
-
-        INSERT INTO tag_fts(rowid, name)
-        VALUES(new.id, new.name);
-      END;
-    ''');
-    },
-  );
-
-  @override
   int get schemaVersion => 1;
 
   static QueryExecutor _openConnection() {
@@ -129,19 +44,13 @@ class Database extends _$Database {
   }
 
   Future<List<String>> find_tags(String query) {
-    if(query.trim().isEmpty) {
-      return Future.value([]);
-    }
-
     final select = customSelect(
       '''
-    SELECT tag.*
+    SELECT name
     FROM tag
-    JOIN tag_fts
-      on tag.id = tag_fts.rowid
-    WHERE tag_fts MATCH ?
+    WHERE name LIKE ?
     ''',
-      variables: [Variable.withString(query)],
+      variables: [Variable.withString("%$query%")],
       readsFrom: {tag},
     );
 
