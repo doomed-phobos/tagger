@@ -26,10 +26,10 @@ TaskEither<String, Uint8List> get_image_bytes_from_hitomi_url(
     }
 
     final compressed_bytes = await FlutterImageCompress.compressWithList(
-    response.bodyBytes, 
-    minWidth: 512,
-    minHeight: 512,
-    quality: 70,
+      response.bodyBytes,
+      minWidth: 512,
+      minHeight: 512,
+      quality: 80,
     );
 
     return right(compressed_bytes);
@@ -85,10 +85,7 @@ TaskEither<String, String> _get_image_path_from_hitomi_url(String url) =>
                         entry,
                       ) {
                         return right(
-                          _url_from_url(
-                            _url_from_hash(entry.$1, gg),
-                            gg
-                          ),
+                          _url_from_url(_url_from_hash(entry.$1, gg), gg),
                         );
                       }),
             );
@@ -146,15 +143,15 @@ class _GG {
   bool m(int g) => _m.contains(g) ? _o : !_o;
 
   String s(String h) {
-    final _s = int.tryParse(
+    final s = int.tryParse(
       (RegExp(r'(..)(.)$').firstMatch(h)?.group(2) ?? '') +
           (RegExp(r'(..)(.)$').firstMatch(h)?.group(1) ?? ''),
       radix: 16,
     );
 
-    assert(_s != null);
+    assert(s != null);
 
-    return _s.toString();
+    return s.toString();
   }
 
   static Option<_GG> makeFromString(String body) {
