@@ -136,14 +136,11 @@ final formKey = GlobalKey<FormState>();
     if (formKey.currentState!.validate()) {
       await get_artist_data_from_url(controller.text)
           .map(
-            (data) {
-            debugPrint("Fetched: ${data.$2}");
-            return ArtistCompanion.insert(
+            (data) => ArtistCompanion.insert(
               url: controller.text,
               name: data.$1,
               last_gallery_id: data.$2,
-            );
-            }
+            ),
           )
           .flatMap(
             (data) => widget._database.insert_artist(
