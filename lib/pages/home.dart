@@ -55,8 +55,11 @@ class _HomePage extends State<HomePage> {
 
               return ListView.builder(
                 itemCount: data.length,
-                itemBuilder: (context, index) =>
-                    _ArtistItem(data[index], edit_artist_item, delete_artist_item),
+                itemBuilder: (context, index) => _ArtistItem(
+                  data[index],
+                  edit_artist_item,
+                  delete_artist_item,
+                ),
               );
             },
           ),
@@ -115,7 +118,11 @@ class _ArtistItem extends StatefulWidget {
   final void Function(ArtistStreamItem) fn_go_to_add_page;
   final void Function(int) fn_delete_artist_item;
 
-  const _ArtistItem(this.data, this.fn_go_to_add_page, this.fn_delete_artist_item);
+  const _ArtistItem(
+    this.data,
+    this.fn_go_to_add_page,
+    this.fn_delete_artist_item,
+  );
 
   @override
   createState() => _ArtistItemState();
@@ -222,9 +229,16 @@ class _ArtistItemState extends State<_ArtistItem> {
                     ),
                     SizedBox(width: 5),
                     Flexible(
-                      child: Text(
-                        widget.data.name,
-                        style: get_artist_name_style(),
+                      child: GestureDetector(
+                        onTap: () async {
+                          await Clipboard.setData(ClipboardData(text: widget.data.main_url));
+
+                          show_success_toast("Artist URL copied!");
+                        },
+                        child: Text(
+                          widget.data.name,
+                          style: get_artist_name_style(),
+                        ),
                       ),
                     ),
                   ],
@@ -235,11 +249,18 @@ class _ArtistItemState extends State<_ArtistItem> {
                       onPressed: () => widget.fn_go_to_add_page(widget.data),
                       icon: Icon(Icons.edit),
                     ),
-                    IconButton(onPressed: () async {
-                      if (await show_yes_no_dialog(context, "Delete", "Delete '${widget.data.name}?'")) {
-                        widget.fn_delete_artist_item(widget.data.id);
-                      }
-                    }, icon: Icon(Icons.delete)),
+                    IconButton(
+                      onPressed: () async {
+                        if (await show_yes_no_dialog(
+                          context,
+                          "Delete",
+                          "Delete '${widget.data.name}?'",
+                        )) {
+                          widget.fn_delete_artist_item(widget.data.id);
+                        }
+                      },
+                      icon: Icon(Icons.delete),
+                    ),
                   ],
                 ),
               ],
