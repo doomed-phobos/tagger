@@ -47,7 +47,8 @@ class _HomePage extends State<HomePage> {
             builder: (context, snapshot) {
               if (snapshot.hasError) return Text("Error: ${snapshot.error}");
 
-              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              if (!snapshot.hasData)
+                return const Center(child: CircularProgressIndicator());
 
               final data = snapshot.data!;
 
@@ -72,12 +73,13 @@ class _HomePage extends State<HomePage> {
         await fp.Option.fromNullable(tag.$2)
             .toTaskOption()
             .flatMap(
-              (image_path) => fp.TaskOption.tryCatch(
-                () async => await File(image_path).readAsBytes(),
-              ).orElse(() {
-                show_warning_toast("Failed to load image of ${tag.$1}");
-                return fp.TaskOption.none();
-                }),
+              (image_path) =>
+                  fp.TaskOption.tryCatch(
+                    () async => await File(image_path).readAsBytes(),
+                  ).orElse(() {
+                    show_warning_toast("Failed to load image of ${tag.$1}");
+                    return fp.TaskOption.none();
+                  }),
             )
             .run(),
       );
@@ -111,7 +113,7 @@ class _ArtistItem extends StatefulWidget {
 
 class _ArtistItemState extends State<_ArtistItem> {
   Color circle_color = Colors.grey[800]!;
-  fp.Option<int> selected_tag_id = fp.none();
+  fp.Option<(String, File)> selected_tag = fp.none();
 
   @override
   void initState() {
@@ -124,12 +126,9 @@ class _ArtistItemState extends State<_ArtistItem> {
     final color = await get_artist_data_from_url(widget.data.main_url)
         .map((r) => r.$2)
         .map(
-          (last_gallery_id) {
-            debugPrint("Last: $last_gallery_id Saved: ${widget.data.last_gallery_id}");
-          return last_gallery_id == widget.data.last_gallery_id
+          (last_gallery_id) => last_gallery_id == widget.data.last_gallery_id
               ? Colors.green
-              : Colors.orange;
-          }
+              : Colors.orange,
         )
         .getOrElse((_) => Colors.red)
         .run();
@@ -143,6 +142,30 @@ class _ArtistItemState extends State<_ArtistItem> {
 
   @override
   Widget build(BuildContext context) {
+    final children = selected_tag
+      .match(
+        () => [build_inner_content()],
+        (tag) => [
+          build_inner_content(),
+          SizedBox(height: 10),
+          Flexible(
+            child: SizedBox(
+              child: FutureBuilder<fp.Option<Uint8List>>(
+                future: fp.TaskOption.tryCatch(() async => tag.$2.readAsBytes()).run(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const CircularProgressIndicator();
+
+                  return snapshot.data!.match(
+                    () => Icon(Icons.broken_image),
+                    (bytes) => Image.memory(bytes, width: .infinity)
+                  );
+                },
+              )
+            )
+          )
+        ]
+      );
+
     return Card(
       child: Padding(
         padding: .all(5),
@@ -184,7 +207,7 @@ class _ArtistItemState extends State<_ArtistItem> {
               ],
             ),
 
-            build_inner_content(),
+            ...children,
           ],
         ),
       ),
@@ -208,8 +231,30 @@ class _ArtistItemState extends State<_ArtistItem> {
                 runSpacing: 8.0,
                 children: widget.data.tags.map((tag) {
                   return OutlinedButton(
-                    onPressed: null,
-                    style: get_tag_style(),
+                    onPressed: tag.$2 != null
+                        ? () {
+                            setState(() {
+                              final new_tag = (tag.$1, File(tag.$2!));
+                              selected_tag.match(
+                                () => selected_tag = fp.some(new_tag),
+                                (prev) {
+                                  if (tag.$1 == prev.$1) {
+                                    selected_tag = fp.none();
+                                  } else {
+                                    selected_tag = fp.some(new_tag);
+                                  }
+                                },
+                              );
+                            });
+                          }
+                        : null,
+                    style: get_tag_style(
+                      selected_tag
+                        .map((v) => v.$1)
+                        .getOrElse(() => "") == tag.$1
+                          ? Colors.blue
+                          : null,
+                    ),
                     child: Text(tag.$1),
                   );
                 }).toList(),
