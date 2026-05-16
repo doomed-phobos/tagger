@@ -67,7 +67,13 @@ class _AddPage extends State<AddPage> {
                 ),
                 IconButton(
                   onPressed: save_artist,
-                  icon: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator()) : Icon(Icons.save)
+                  icon: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(),
+                        )
+                      : Icon(Icons.save),
                 ),
               ],
             ),
@@ -104,25 +110,34 @@ class _AddPage extends State<AddPage> {
   }
 
   Future<void> save_artist() async {
-    if(context.mounted) {
+    if (context.mounted) {
       setState(() => isLoading = true);
     }
-    
-    if(formKey.currentState!.validate()) {
+
+    if (formKey.currentState!.validate()) {
       await get_artist_data_from_url(controller.text)
-        .map((data) => ArtistCompanion.insert(url: controller.text, name: data.$1, last_gallery_id: data.$2))
-        .flatMap(
-          (data) =>
-            widget
-              ._database
-              .insert_artist(data, widget._tag_map, widget._link_set))
-        .match(
-          (e) => show_error_toast(e),
-          (unit) => show_success_toast("Artist added!")
-        ).run();
+          .map(
+            (data) => ArtistCompanion.insert(
+              url: controller.text,
+              name: data.$1,
+              last_gallery_id: data.$2,
+            ),
+          )
+          .flatMap(
+            (data) => widget._database.insert_artist(
+              data,
+              widget._tag_map,
+              widget._link_set,
+            ),
+          )
+          .match(
+            (e) => show_error_toast(e),
+            (unit) => show_success_toast("Artist added!"),
+          )
+          .run();
     }
 
-    if(context.mounted) {
+    if (context.mounted) {
       setState(() => isLoading = false);
     }
   }
@@ -163,10 +178,7 @@ class _TagFormState extends State<_TagForm> {
             controller: controller,
             suggestionsCallback: (search) async {
               final tags = await widget.database.find_tags(search);
-              return
-                tags
-                  .where((x) => !widget.tag_map.containsKey(x))
-                  .toList();
+              return tags.where((x) => !widget.tag_map.containsKey(x)).toList();
             },
             onSelected: (tag) {
               add_tag(tag);
@@ -177,6 +189,7 @@ class _TagFormState extends State<_TagForm> {
             builder: (context, controller, focusNode) {
               return TextFormField(
                 onTapOutside: (_) => focusNode.unfocus(),
+                onFieldSubmitted: (value) => add_tag(value),
                 controller: controller,
                 focusNode: focusNode,
                 decoration: InputDecoration(
@@ -184,7 +197,7 @@ class _TagFormState extends State<_TagForm> {
                   hintText: "tag 1",
                   suffixIcon: IconButton(
                     onPressed: () {
-                      if(formKey.currentState!.validate()) {
+                      if (formKey.currentState!.validate()) {
                         add_tag(controller.text);
                       }
                     },
@@ -220,7 +233,9 @@ class _TagFormState extends State<_TagForm> {
                             if (confirm) {
                               setState(() => widget.tag_map.remove(e.key));
                             }
-                          }, icon: Icon(Icons.delete)),
+                          },
+                          icon: Icon(Icons.delete),
+                        ),
                       ],
                     ),
                   ),
@@ -234,6 +249,7 @@ class _TagFormState extends State<_TagForm> {
 
   void add_tag(String name) {
     final v = name.trim();
+    if(v.isEmpty) return;
 
     if (!widget.tag_map.containsKey(v)) {
       setState(() {
@@ -351,17 +367,14 @@ class _LinkFormState extends State<_LinkForm> {
           TextFormField(
             controller: controller,
             focusNode: focusNode,
+            onFieldSubmitted: (value) => add_link(value),
             decoration: InputDecoration(
               labelText: "Link?",
               hintText: "https://www.pixiv.net/",
               suffixIcon: IconButton(
                 onPressed: () {
                   if (formKey.currentState!.validate()) {
-                    setState(() =>
-                      widget.link_list.add(controller.text));
-
-                    controller.clear();
-                    focusNode.unfocus();
+                    add_link(controller.text);
                   }
                 },
                 icon: Icon(Icons.add),
@@ -379,10 +392,8 @@ class _LinkFormState extends State<_LinkForm> {
                   (url) => TextButton(
                     onPressed: () {},
                     style: TextButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: .zero
-                      ),
-                      foregroundColor: Colors.blue
+                      shape: RoundedRectangleBorder(borderRadius: .zero),
+                      foregroundColor: Colors.blue,
                     ),
                     child: Row(
                       mainAxisSize: .min,
@@ -411,5 +422,15 @@ class _LinkFormState extends State<_LinkForm> {
         ],
       ),
     );
+  }
+
+  void add_link(String text) {
+    final v = text.trim();
+    if(v.isEmpty) return;
+
+    setState(() => widget.link_list.add(v));
+
+    controller.clear();
+    focusNode.unfocus();
   }
 }
