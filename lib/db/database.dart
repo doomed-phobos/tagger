@@ -40,6 +40,18 @@ class ArtistUrl extends Table {
   TextColumn get url => text()();
 }
 
+class ArtistStreamItem {
+  final int id;
+  final int last_gallery_id;
+  final String name;
+  final String main_url;
+
+  final Set<(String, String?)> tags = {};
+  final Set<String> urls = {};
+
+  ArtistStreamItem(this.id, this.last_gallery_id, this.name, this.main_url);
+}
+
 @DriftDatabase(tables: [Artist, Tag, ArtistTag, ArtistUrl])
 class Database extends _$Database {
   Database() : super(_openConnection());
@@ -54,6 +66,60 @@ class Database extends _$Database {
         databaseDirectory: getApplicationSupportDirectory,
       ),
     );
+  }
+
+  Stream<List<ArtistStreamItem>> get_artist_stream() {
+    final query = customSelect(
+      '''
+    SELECT 
+      a.id,
+      a.url,
+      a.last_gallery_id,
+      a.name,
+      t.name AS tag_name,
+      at.image_path AS tag_image_path,
+      au.url AS work_url
+    FROM artist a
+    LEFT JOIN artist_tag at ON a.id = at.artist
+    LEFT JOIN tag t ON at.tag = t.id
+    LEFT JOIN artist_url au ON a.id = au.artist
+    ORDER BY a.id
+    ''',
+      // Indica a drift qué tablas se leen para que el stream se actualice
+      // cuando cualquiera de ellas cambie
+      readsFrom: {artist, artistTag, tag, artistUrl},
+    ).watch();
+
+    return query.map((rows) {
+      final Map<int, ArtistStreamItem> items = {};
+
+      for (final row in rows) {
+        final id = row.read<int>('id');
+        final main_url = row.read<String>('url');
+        final lastGalleryId = row.read<int>('last_gallery_id');
+        final name = row.read<String>('name');
+        final tagName = row.read<String?>('tag_name');
+        final tagImagePath = row.read<String?>('tag_image_path');
+        final work_url = row.read<String?>('work_url');
+
+        // Obtiene o crea el acumulador para este artista
+        final acc = items.putIfAbsent(
+          id,
+          () => ArtistStreamItem(id, lastGalleryId, name, main_url),
+        );
+
+        // Agrega el tag si existe
+        if (tagName != null) {
+          acc.tags.add((tagName, tagImagePath));
+        }
+        // Agrega la URL si existe
+        if (work_url != null) {
+          acc.urls.add(work_url);
+        }
+      }
+
+      return items.values.toList();
+    });
   }
 
   Future<List<String>> find_tags(String query) {
@@ -127,13 +193,18 @@ class Database extends _$Database {
       final existing_tags = await get_existing_artist_tags(artist_id);
       for (final existing in existing_tags) {
         if (!tags.containsKey(existing.$1)) {
-          m.debugPrint("Deleting artist_tag=${existing.$2.id} and posibly tag=${existing.$2.tag}");
+          m.debugPrint(
+            "Deleting artist_tag=${existing.$2.id} and posibly tag=${existing.$2.tag}",
+          );
           final image_path = existing.$2.image_path;
           if (image_path != null) {
             m.debugPrint("Deleting image in ${image_path}");
             //image_futures.add(File(image_path).delete());
           }
-          await delete_artist_tag_and_posibly_tag(existing.$2.id, existing.$2.tag);
+          await delete_artist_tag_and_posibly_tag(
+            existing.$2.id,
+            existing.$2.tag,
+          );
         }
       }
 
@@ -211,7 +282,10 @@ class Database extends _$Database {
     return result;
   }
 
-  Future<void> delete_artist_tag_and_posibly_tag(int artist_tag_id, int tag_id) async {
+  Future<void> delete_artist_tag_and_posibly_tag(
+    int artist_tag_id,
+    int tag_id,
+  ) async {
     await transaction(() async {
       await (delete(artistTag)..where((t) => t.id.equals(artist_tag_id))).go();
 
