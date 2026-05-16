@@ -114,6 +114,7 @@ class _ArtistItem extends StatefulWidget {
 class _ArtistItemState extends State<_ArtistItem> {
   Color circle_color = Colors.grey[800]!;
   fp.Option<(String, File)> selected_tag = fp.none();
+  final image_key = GlobalKey();
 
   @override
   void initState() {
@@ -140,31 +141,54 @@ class _ArtistItemState extends State<_ArtistItem> {
     }
   }
 
+  void scroll_to_image(BuildContext context) {
+    Scrollable.ensureVisible(
+      context,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      alignment: 1.0,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final children = selected_tag
-      .match(
-        () => [build_inner_content()],
-        (tag) => [
-          build_inner_content(),
-          SizedBox(height: 10),
-          Flexible(
-            child: SizedBox(
-              child: FutureBuilder<fp.Option<Uint8List>>(
-                future: fp.TaskOption.tryCatch(() async => tag.$2.readAsBytes()).run(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const CircularProgressIndicator();
+    final children = selected_tag.match(
+      () => [build_inner_content()],
+      (tag) => [
+        build_inner_content(),
+        SizedBox(height: 10),
+        Flexible(
+          child: SizedBox(
+            child: FutureBuilder<fp.Option<Uint8List>>(
+              future: fp.TaskOption.tryCatch(
+                () async => tag.$2.readAsBytes(),
+              ).run(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const CircularProgressIndicator();
 
-                  return snapshot.data!.match(
-                    () => Icon(Icons.broken_image),
-                    (bytes) => Image.memory(bytes, width: .infinity)
-                  );
-                },
-              )
-            )
-          )
-        ]
-      );
+                return snapshot.data!.match(
+                  () => Icon(Icons.broken_image),
+                  (bytes) => Image.memory(
+                    bytes,
+                    width: .infinity,
+                    frameBuilder:
+                        (context, child, frame, wasSynchronouslyLoaded) {
+                          if (frame != null) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              scroll_to_image(context);
+                            });
+                          }
+
+                          return child;
+                        },
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
 
     return Card(
       child: Padding(
@@ -249,9 +273,8 @@ class _ArtistItemState extends State<_ArtistItem> {
                           }
                         : null,
                     style: get_tag_style(
-                      selected_tag
-                        .map((v) => v.$1)
-                        .getOrElse(() => "") == tag.$1
+                      selected_tag.map((v) => v.$1).getOrElse(() => "") ==
+                              tag.$1
                           ? Colors.blue
                           : null,
                     ),
