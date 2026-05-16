@@ -12,18 +12,37 @@ import "package:tagger/toast.dart";
 
 class AddPage extends StatefulWidget {
   final Database _database;
+  final String? _default_artist_url;
   final Map<String, fp.Option<Uint8List>> _tag_map = {};
   final List<String> _link_set = [];
-  AddPage(this._database, {super.key});
+
+  AddPage(this._database, this._default_artist_url, {super.key});
+
+  void add_tag(String name, fp.Option<Uint8List> buffer) {
+    _tag_map[name] = buffer;
+  }
+
+  void add_link(String url) {
+    _link_set.add(url);
+  }
 
   @override
   createState() => _AddPage();
 }
 
 class _AddPage extends State<AddPage> {
-  final formKey = GlobalKey<FormState>();
+final formKey = GlobalKey<FormState>();
   final controller = TextEditingController();
   var isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if(widget._default_artist_url != null) {
+      controller.text = widget._default_artist_url!;
+    }
+  }
 
   @override
   void dispose() {
@@ -117,11 +136,14 @@ class _AddPage extends State<AddPage> {
     if (formKey.currentState!.validate()) {
       await get_artist_data_from_url(controller.text)
           .map(
-            (data) => ArtistCompanion.insert(
+            (data) {
+            debugPrint("Fetched: ${data.$2}");
+            return ArtistCompanion.insert(
               url: controller.text,
               name: data.$1,
               last_gallery_id: data.$2,
-            ),
+            );
+            }
           )
           .flatMap(
             (data) => widget._database.insert_artist(
@@ -249,7 +271,7 @@ class _TagFormState extends State<_TagForm> {
 
   void add_tag(String name) {
     final v = name.trim();
-    if(v.isEmpty) return;
+    if (v.isEmpty) return;
 
     if (!widget.tag_map.containsKey(v)) {
       setState(() {
@@ -426,7 +448,7 @@ class _LinkFormState extends State<_LinkForm> {
 
   void add_link(String text) {
     final v = text.trim();
-    if(v.isEmpty) return;
+    if (v.isEmpty) return;
 
     setState(() => widget.link_list.add(v));
 
