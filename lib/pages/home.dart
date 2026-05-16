@@ -4,6 +4,7 @@ import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:tagger/bootstrap.dart";
 import "package:tagger/db/database.dart";
+import "package:tagger/dialog.dart";
 import "package:tagger/extractor/artist.dart";
 import "package:tagger/pages/add.dart";
 import "package:tagger/theme.dart";
@@ -55,13 +56,21 @@ class _HomePage extends State<HomePage> {
               return ListView.builder(
                 itemCount: data.length,
                 itemBuilder: (context, index) =>
-                    _ArtistItem(data[index], edit_artist_item),
+                    _ArtistItem(data[index], edit_artist_item, delete_artist_item),
               );
             },
           ),
         ),
       ],
     );
+  }
+
+  Future<void> delete_artist_item(int artist_id) async {
+    if (await widget._database.delete_artist(artist_id)) {
+      show_success_toast("Success to delete artist!");
+    } else {
+      show_error_toast("Failed to delete artist!");
+    }
   }
 
   Future<void> edit_artist_item(ArtistStreamItem item) async {
@@ -103,9 +112,10 @@ class _HomePage extends State<HomePage> {
 
 class _ArtistItem extends StatefulWidget {
   final ArtistStreamItem data;
-  final void Function(ArtistStreamItem) go_to_add_page_fn;
+  final void Function(ArtistStreamItem) fn_go_to_add_page;
+  final void Function(int) fn_delete_artist_item;
 
-  const _ArtistItem(this.data, this.go_to_add_page_fn);
+  const _ArtistItem(this.data, this.fn_go_to_add_page, this.fn_delete_artist_item);
 
   @override
   createState() => _ArtistItemState();
@@ -222,10 +232,14 @@ class _ArtistItemState extends State<_ArtistItem> {
                 Row(
                   children: [
                     IconButton(
-                      onPressed: () => widget.go_to_add_page_fn(widget.data),
+                      onPressed: () => widget.fn_go_to_add_page(widget.data),
                       icon: Icon(Icons.edit),
                     ),
-                    IconButton(onPressed: null, icon: Icon(Icons.delete)),
+                    IconButton(onPressed: () async {
+                      if (await show_yes_no_dialog(context, "Delete", "Delete '${widget.data.name}?'")) {
+                        widget.fn_delete_artist_item(widget.data.id);
+                      }
+                    }, icon: Icon(Icons.delete)),
                   ],
                 ),
               ],

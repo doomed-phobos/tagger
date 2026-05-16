@@ -211,7 +211,9 @@ class Database extends _$Database {
       artist,
     )..where((a) => a.name.equals(companion.name.value))).getSingleOrNull();
     if (existing != null) {
-      await update(artist).replace(existing.copyWith(last_gallery_id: companion.last_gallery_id.value));
+      await update(artist).replace(
+        existing.copyWith(last_gallery_id: companion.last_gallery_id.value),
+      );
       return existing.id;
     }
 
@@ -290,5 +292,42 @@ class Database extends _$Database {
         await (delete(tag)..where((t) => t.id.equals(tag_id))).go();
       }
     });
+  }
+
+  Future<bool> delete_artist(int artist_id) async {
+    // 1. Obtener todos los ArtistTag de este artista (para tener las rutas de las imágenes)
+    final artistTags = await (select(
+      artistTag,
+    )..where((at) => at.artist.equals(artist_id))).get();
+
+    // 2. Eliminar los archivos de imagen asociados a cada ArtistTag (si existen)
+    for (final at in artistTags) {
+      final imagePath = at.image_path;
+      if (imagePath != null) {
+        try {
+          await File(imagePath).delete();
+        } catch (_) {
+          // Si falla la eliminación del archivo, no interrumpimos la operación
+        }
+      }
+    }
+
+    // 3. Transacción: eliminar registros de la base de datos
+    await transaction(() async {
+      // 3.1 Eliminar cada ArtistTag y, si procede, el Tag huérfano
+      for (final at in artistTags) {
+        await delete_artist_tag_and_posibly_tag(at.id, at.tag);
+      }
+
+      // 3.2 Eliminar todas las URLs del artista
+      await (delete(
+        artistUrl,
+      )..where((au) => au.artist.equals(artist_id))).go();
+
+      // 3.3 Eliminar el artista
+      await (delete(artist)..where((a) => a.id.equals(artist_id))).go();
+    });
+
+    return true;
   }
 }
