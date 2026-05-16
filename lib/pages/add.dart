@@ -31,7 +31,7 @@ class AddPage extends StatefulWidget {
 }
 
 class _AddPage extends State<AddPage> {
-final formKey = GlobalKey<FormState>();
+  final formKey = GlobalKey<FormState>();
   final controller = TextEditingController();
   var isLoading = false;
 
@@ -39,7 +39,7 @@ final formKey = GlobalKey<FormState>();
   void initState() {
     super.initState();
 
-    if(widget._default_artist_url != null) {
+    if (widget._default_artist_url != null) {
       controller.text = widget._default_artist_url!;
     }
   }
@@ -143,11 +143,21 @@ final formKey = GlobalKey<FormState>();
             ),
           )
           .flatMap(
-            (data) => widget._database.insert_artist(
-              data,
-              widget._tag_map,
-              widget._link_set,
-            ),
+            (data) => fp.TaskEither.Do(($) async {
+              if (await widget._database.does_exist_artist(data.name.value)) {
+                if (!await show_yes_no_dialog(context, "Overwrite", "Overwrite artist?")) {
+                  return await $(fp.TaskEither.left("Canceled"));
+                }
+              }
+
+              await $(
+                widget._database.insert_artist(
+                  data,
+                  widget._tag_map,
+                  widget._link_set,
+                ),
+              );
+            }),
           )
           .match(
             (e) => show_error_toast(e),

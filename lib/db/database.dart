@@ -134,6 +134,13 @@ class Database extends _$Database {
     return select.map((x) => x.read<String>("name")).get();
   }
 
+  Future<bool> does_exist_artist(String name) async {
+    final existing = await (select(
+      artist,
+    )..where((a) => a.name.equals(name))).getSingleOrNull();
+    return existing != null;
+  }
+
   TaskEither<String, Unit> insert_artist(
     ArtistCompanion artist,
     Map<String, Option<Uint8List>> tags,
