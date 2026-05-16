@@ -20,3 +20,12 @@ void show_success_toast(String text) {
     autoCloseDuration: TOAST_DURATION,
   );
 }
+
+void show_warning_toast(String text) {
+  toastification.show(
+    title: Text(text),
+    type: .warning,
+    alignment: .bottomRight,
+    autoCloseDuration: TOAST_DURATION
+  );
+}
