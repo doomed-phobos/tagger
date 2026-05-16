@@ -1,0 +1,65 @@
+name: Create Release from pubspec version
+
+on:
+  workflow_dispatch:          # Permite ejecutarlo manualmente desde GitHub
+  # push:
+  #   branches: [ main ]      # Opcional: ejecutarlo al pushear a main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # Necesario para crear releases y pushear ramas
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # Para tener toda la historia y poder crear ramas
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Read version from pubspec.yaml
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          # Para usar solo major.minor (v1.2) o completa (v1.2.3)
+          BRANCH_NAME="v${VERSION}"   # quita el último segmento: 1.2.3 -> v1.2
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Check if branch exists
+        id: branch_exists
+        run: |
+          if git ls-remote --heads origin ${{ env.BRANCH_NAME }} | grep -q ${{ env.BRANCH_NAME }}; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push branch (if not exists)
+        if: steps.branch_exists.outputs.exists == 'false'
+        run: |
+          git checkout -b ${{ env.BRANCH_NAME }}
+          git push origin ${{ env.BRANCH_NAME }}
+
+      - name: Build APK (release)
+        run: flutter build apk --release
+
+      - name: Create Release and upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.BRANCH_NAME }}
+          name: ${{ env.BRANCH_NAME }}
+          body: |
+            Automatically generated release from version ${{ env.VERSION }} in pubspec.yaml
+          files: build/app/outputs/flutter-apk/app-release.apk
+          draft: false
+          prerelease: false
