@@ -5,13 +5,16 @@ import "package:flutter_typeahead/flutter_typeahead.dart";
 import "package:tagger/db/database.dart";
 import "package:tagger/dialog.dart";
 import "package:fpdart/fpdart.dart" as fp;
+import "package:tagger/extractor/artist.dart";
 import "package:tagger/extractor/image.dart";
 import "package:tagger/theme.dart";
-import "package:toastification/toastification.dart";
+import "package:tagger/toast.dart";
 
 class AddPage extends StatefulWidget {
   final Database _database;
-  const AddPage(this._database, {super.key});
+  final Map<String, fp.Option<Uint8List>> _tag_map = {};
+  final List<String> _link_set = [];
+  AddPage(this._database, {super.key});
 
   @override
   createState() => _AddPage();
@@ -19,6 +22,14 @@ class AddPage extends StatefulWidget {
 
 class _AddPage extends State<AddPage> {
   final formKey = GlobalKey<FormState>();
+  final controller = TextEditingController();
+  var isLoading = false;
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +65,10 @@ class _AddPage extends State<AddPage> {
                     style: TextStyle(fontWeight: .bold, fontSize: 24),
                   ),
                 ),
-                IconButton(onPressed: null, icon: Icon(Icons.save)),
+                IconButton(
+                  onPressed: save_artist,
+                  icon: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator()) : Icon(Icons.save)
+                ),
               ],
             ),
             Expanded(
@@ -63,17 +77,22 @@ class _AddPage extends State<AddPage> {
                   children: [
                     SizedBox(height: 10),
                     TextFormField(
+                      controller: controller,
                       decoration: InputDecoration(
-                        labelText: "Artist Name",
-                        hintText: "artist 1",
+                        labelText: "Artist URL",
+                        hintText: "https://hitomi.la/artist/XXXXXXXX-all.html",
                       ),
                       validator: (value) => (value == null || value.isEmpty)
-                          ? "Artist is empty"
+                          ? "URL artist is empty"
                           : null,
                     ),
                     SizedBox(height: 20),
 
-                    _TagForm(widget._database),
+                    _TagForm(widget._database, widget._tag_map),
+
+                    SizedBox(height: 10),
+
+                    _LinkForm(widget._link_set),
                   ],
                 ),
               ),
@@ -83,13 +102,37 @@ class _AddPage extends State<AddPage> {
       ),
     );
   }
+
+  Future<void> save_artist() async {
+    if(context.mounted) {
+      setState(() => isLoading = true);
+    }
+    
+    if(formKey.currentState!.validate()) {
+      await get_artist_data_from_url(controller.text)
+        .map((data) => ArtistCompanion.insert(url: controller.text, name: data.$1, last_gallery_id: data.$2))
+        .flatMap(
+          (data) =>
+            widget
+              ._database
+              .insert_artist(data, widget._tag_map, widget._link_set))
+        .match(
+          (e) => show_error_toast(e),
+          (unit) => show_success_toast("Artist added!")
+        ).run();
+    }
+
+    if(context.mounted) {
+      setState(() => isLoading = false);
+    }
+  }
 }
 
 class _TagForm extends StatefulWidget {
   final Database database;
-  final Map<String, fp.Option<Uint8List>> tag_map = {};
+  final Map<String, fp.Option<Uint8List>> tag_map;
 
-  _TagForm(this.database);
+  const _TagForm(this.database, this.tag_map);
 
   @override
   createState() => _TagFormState();
@@ -210,7 +253,7 @@ class _TagFormState extends State<_TagForm> {
       if (mounted) {
         setState(() => widget.tag_map[key] = fp.some(bytes));
       }
-    };
+    }
 
     showModalBottomSheet(
       context: context,
@@ -254,13 +297,7 @@ class _TagFormState extends State<_TagForm> {
                                     ).run();
 
                                 res.match(
-                                  (e) => toastification.show(
-                                    title: Text(e),
-                                    type: .error,
-                                    autoCloseDuration: const Duration(
-                                      seconds: 3,
-                                    ),
-                                  ),
+                                  (e) => show_error_toast(e),
                                   (bytes) => update_image(bytes),
                                 );
 
@@ -280,6 +317,99 @@ class _TagFormState extends State<_TagForm> {
           },
         );
       },
+    );
+  }
+}
+
+class _LinkForm extends StatefulWidget {
+  final List<String> link_list;
+  const _LinkForm(this.link_list);
+
+  @override
+  createState() => _LinkFormState();
+}
+
+class _LinkFormState extends State<_LinkForm> {
+  final formKey = GlobalKey<FormState>();
+  final controller = TextEditingController();
+  final focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: formKey,
+      child: Column(
+        crossAxisAlignment: .start,
+        children: [
+          TextFormField(
+            controller: controller,
+            focusNode: focusNode,
+            decoration: InputDecoration(
+              labelText: "Link?",
+              hintText: "https://www.pixiv.net/",
+              suffixIcon: IconButton(
+                onPressed: () {
+                  if (formKey.currentState!.validate()) {
+                    setState(() =>
+                      widget.link_list.add(controller.text));
+
+                    controller.clear();
+                    focusNode.unfocus();
+                  }
+                },
+                icon: Icon(Icons.add),
+              ),
+            ),
+            validator: (value) =>
+                (value == null || value.isEmpty) ? "Link is empty" : null,
+          ),
+          SizedBox(height: 10),
+          Wrap(
+            runSpacing: 8,
+            spacing: 8,
+            children: widget.link_list
+                .map(
+                  (url) => TextButton(
+                    onPressed: () {},
+                    style: TextButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: .zero
+                      ),
+                      foregroundColor: Colors.blue
+                    ),
+                    child: Row(
+                      mainAxisSize: .min,
+                      children: [
+                        Flexible(child: Text(url)),
+                        SizedBox(width: 10),
+                        IconButton(
+                          onPressed: () async {
+                            final confirm = await show_yes_no_dialog(
+                              context,
+                              "Delete Link",
+                              'Delete "$url"?',
+                            );
+                            if (confirm) {
+                              setState(() => widget.link_list.remove(url));
+                            }
+                          },
+                          icon: Icon(Icons.delete),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
     );
   }
 }
