@@ -5,8 +5,6 @@ import "package:drift_flutter/drift_flutter.dart";
 import "package:fpdart/fpdart.dart";
 import "package:path_provider/path_provider.dart";
 
-import "package:flutter/material.dart" as m; // FIXME: Delete this
-
 part "database.g.dart";
 
 @TableIndex(name: "artist_name_idx", columns: {#name})
@@ -163,7 +161,7 @@ class Database extends _$Database {
       );
 
       // Creating artist
-      final artist_id = await find_or_create_artist(artist);
+      final artist_id = await upsert_artist(artist);
       final image_futures = <Future<void>>[];
 
       // Assuming that File creation and deletion won't throw any exception
@@ -175,8 +173,7 @@ class Database extends _$Database {
 
         final buffer = entry.value.toNullable();
         if (buffer != null) {
-          m.debugPrint("Writing buffer in ${file.path}");
-          //image_futures.add(file.writeAsBytes(buffer));
+          image_futures.add(file.writeAsBytes(buffer));
         }
 
         if (await upsert_artist_tag(
@@ -184,8 +181,7 @@ class Database extends _$Database {
           tag_id,
           buffer != null ? file.path : null,
         )) {
-          //image_futures.add(file.delete());
-          m.debugPrint("Deleting buffer in ${file.path}");
+          image_futures.add(file.delete());
         }
       }
 
@@ -193,13 +189,9 @@ class Database extends _$Database {
       final existing_tags = await get_existing_artist_tags(artist_id);
       for (final existing in existing_tags) {
         if (!tags.containsKey(existing.$1)) {
-          m.debugPrint(
-            "Deleting artist_tag=${existing.$2.id} and posibly tag=${existing.$2.tag}",
-          );
           final image_path = existing.$2.image_path;
           if (image_path != null) {
-            m.debugPrint("Deleting image in ${image_path}");
-            //image_futures.add(File(image_path).delete());
+            image_futures.add(File(image_path).delete());
           }
           await delete_artist_tag_and_posibly_tag(
             existing.$2.id,
@@ -214,11 +206,12 @@ class Database extends _$Database {
     });
   }
 
-  Future<int> find_or_create_artist(ArtistCompanion companion) async {
+  Future<int> upsert_artist(ArtistCompanion companion) async {
     final existing = await (select(
       artist,
     )..where((a) => a.name.equals(companion.name.value))).getSingleOrNull();
     if (existing != null) {
+      await update(artist).replace(existing.copyWith(last_gallery_id: companion.last_gallery_id.value));
       return existing.id;
     }
 
@@ -295,7 +288,6 @@ class Database extends _$Database {
 
       if (remaining.isEmpty) {
         await (delete(tag)..where((t) => t.id.equals(tag_id))).go();
-        m.debugPrint("Deleting tag=$tag_id");
       }
     });
   }
