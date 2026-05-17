@@ -7,16 +7,17 @@ typedef ArtistData = (String /*name*/, int /*last gallery id*/);
 
 TaskEither<String, ArtistData> get_artist_data_from_url(String url) => TaskEither(() async {
   final regex = RegExp(
-    r"^https://hitomi\.la/artist/(.*)-all\.html$",
+    r"^https://hitomi\.la/(group|artist)/(.*)-all\.html$",
   ).firstMatch(url);
   if (regex == null) {
     return left("Invalid URL artist");
   }
-  final name = regex.group(1)!;
+  final type = regex.group(1)!;
+  final name = regex.group(2)!;
 
   final response = await http.get(
     Uri.parse(
-      'https://ltn.gold-usergeneratedcontent.net/artist/$name-all.nozomi',
+      'https://ltn.gold-usergeneratedcontent.net/$type/$name-all.nozomi',
     ),
     headers: {'Range': 'bytes=0-4'},
   );
