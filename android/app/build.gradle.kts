@@ -5,6 +5,16 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
+// Cargar key.properties si existe
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.phobos.tagger"
     compileSdk = flutter.compileSdkVersion
@@ -30,12 +40,26 @@ android {
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+    signingConfigs {
+      create("release") {
+        if (keystorePropertiesFile.exists()) {
+          storeFile = file(keystoreProperties["storeFile"] as String)
+          storePassword = keystoreProperties["storePassword"] as String
+          keyAlias = keystoreProperties["keyAlias"] as String
+          keyPassword = keystoreProperties["keyPassword"] as String
         }
+      }
+    }
+
+    buildTypes {
+      getByName("release") {
+        signingConfig = if (keystorePropertiesFile.exists()) signingConfigs.getByName("release") else null
+        isMinifyEnabled = true
+        proguardFiles(
+          getDefaultProguardFile("proguard-android-optimize.txt"),
+          "proguard-rules.pro"
+        )
+      }
     }
 }
 
