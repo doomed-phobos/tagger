@@ -66,6 +66,27 @@ class Database extends _$Database {
     );
   }
 
+  Future<Map<String, int>> get_tags_count() async {
+    final query = customSelect(
+      '''
+      SELECT t.name, COUNT(at.tag) AS count
+      FROM tag t
+      LEFT JOIN artist_tag at ON t.id = at.tag
+      GROUP BY t.name
+      ORDER BY count ASC
+      ''',
+      readsFrom: {tag, artistTag},
+    );
+    final rows = await query.get();
+    final result = <String, int>{};
+    for (final row in rows) {
+      final name = row.read<String>('name');
+      final count = row.read<int>('count');
+      result[name] = count;
+    }
+    return result;
+  }
+
   Stream<List<ArtistStreamItem>> get_artist_stream() {
     final query = customSelect(
       '''

@@ -3,6 +3,7 @@ import "package:fpdart/fpdart.dart";
 import "package:tagger/bootstrap.dart";
 import "package:tagger/db/database.dart";
 import "package:tagger/pages/home.dart";
+import "package:tagger/pages/statistic.dart";
 import "package:toastification/toastification.dart";
 
 void main() async {
@@ -15,7 +16,17 @@ void main() async {
   runApp(
     either.match(
       (error) => MaterialApp(home: Text(error)),
-      (database) => ToastificationWrapper(child: bootstrap(HomePage(database))),
+      (database) =>
+        ToastificationWrapper(
+        child:
+          bootstrap(
+          PageView(
+          reverse: true,
+          children: [
+            HomePage(database),
+            StatisticPage(database),
+          ],
+          )))
     ),
   );
 }
