@@ -5,6 +5,7 @@ import "package:flutter/services.dart";
 import "package:tagger/db/database.dart";
 import "package:tagger/dialog.dart";
 import "package:tagger/extractor/artist.dart";
+import "package:tagger/filter.dart";
 import "package:tagger/pages/add.dart";
 import "package:tagger/theme.dart";
 import "package:fpdart/fpdart.dart" as fp;
@@ -21,6 +22,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePage extends State<HomePage> {
+  Filter filter = Filter.empty();
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -29,22 +32,22 @@ class _HomePage extends State<HomePage> {
         Expanded(
           flex: 0,
           child: TextField(
+            onSubmitted: (value) => set_filter(Filter.make(value)),
             decoration: InputDecoration(
-              hintText: "artist name tag:tag 1",
+              hintText: "artist name tag:tag 1 tag: tag 2",
               labelText: "Search...",
               suffixIcon: IconButton(
                 onPressed: () =>
                     _go_to_add_page(AddPage(widget._database, null)),
                 icon: Icon(Icons.add),
               ),
-              prefixIcon: Icon(Icons.search),
             ),
           ),
         ),
         SizedBox(height: 10),
         Expanded(
           child: StreamBuilder<List<ArtistStreamItem>>(
-            stream: widget._database.get_artist_stream(),
+            stream: widget._database.get_artist_stream(filter),
             builder: (context, snapshot) {
               if (snapshot.hasError) return Text("Error: ${snapshot.error}");
 
@@ -52,6 +55,24 @@ class _HomePage extends State<HomePage> {
                 return const Center(child: CircularProgressIndicator());
 
               final data = snapshot.data!;
+
+              if (data.isEmpty) {
+                final filters = [
+                  if (filter.artist_name != null)
+                    'artist="${filter.artist_name}"',
+
+                  ...filter.tags.map((t) => 'tag:$t'),
+                ].join(', ');
+
+                return Center(
+                  child: Text(
+                    filters.isEmpty
+                        ? "No hay elementos"
+                        : "No hay elementos para los filtros: $filters",
+                        textAlign: .center,
+                  ),
+                );
+              }
 
               return ListView.builder(
                 itemCount: data.length,
@@ -67,6 +88,12 @@ class _HomePage extends State<HomePage> {
         ),
       ],
     );
+  }
+
+  void set_filter(Filter filter) {
+    setState(() {
+      this.filter = filter;
+    });
   }
 
   Future<void> delete_artist_item(int artist_id) async {

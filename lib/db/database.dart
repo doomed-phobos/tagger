@@ -4,6 +4,7 @@ import "package:drift/drift.dart";
 import "package:drift_flutter/drift_flutter.dart";
 import "package:fpdart/fpdart.dart";
 import "package:path_provider/path_provider.dart";
+import "package:tagger/filter.dart";
 
 part "database.g.dart";
 
@@ -87,7 +88,7 @@ class Database extends _$Database {
     return result;
   }
 
-  Stream<List<ArtistStreamItem>> get_artist_stream() {
+  Stream<List<ArtistStreamItem>> get_artist_stream(Filter filter) {
     final query = customSelect(
       '''
     SELECT 
@@ -137,11 +138,24 @@ class Database extends _$Database {
         }
       }
 
-      return
-        items
-          .values
-          .toList()
-          ..sort((a,b) => b.tags.length.compareTo(a.tags.length));
+      // Aplicar filtros
+      var result = items.values.toList();
+      if (filter.artist_name != null && filter.artist_name!.isNotEmpty) {
+        final nameFilter = filter.artist_name!.toLowerCase();
+        result = result
+            .where((item) => item.name.toLowerCase().contains(nameFilter))
+            .toList();
+      }
+      if (filter.tags.isNotEmpty) {
+        result = result.where((item) {
+          final itemTagNames = item.tags.map((t) => t.$1).toSet();
+          return filter.tags.every((tag) => itemTagNames.contains(tag));
+        }).toList();
+      }
+
+      // Ordenar por número de tags descendente
+      result.sort((a, b) => b.tags.length.compareTo(a.tags.length));
+      return result;
     });
   }
 
@@ -241,9 +255,7 @@ class Database extends _$Database {
 
   Future<void> replaceArtistUrls(int artistId, List<String> urls) async {
     // Delete existing URLs
-    await (delete(
-      artistUrl,
-    )..where((au) => au.artist.equals(artistId))).go();
+    await (delete(artistUrl)..where((au) => au.artist.equals(artistId))).go();
     // Insert new ones
     for (final url in urls) {
       await into(
