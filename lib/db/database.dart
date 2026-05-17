@@ -116,7 +116,11 @@ class Database extends _$Database {
         }
       }
 
-      return items.values.toList();
+      return
+        items
+          .values
+          .toList()
+          ..sort((a,b) => b.tags.length.compareTo(a.tags.length));
     });
   }
 
