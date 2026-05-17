@@ -89,6 +89,36 @@ class Database extends _$Database {
   }
 
   Stream<List<ArtistStreamItem>> get_artist_stream(Filter filter) {
+    final variables = <Variable>[];
+    final whereClauses = <String>[];
+
+    // filtro por nombre de artista
+    if (filter.artist_name != null && filter.artist_name!.isNotEmpty) {
+      whereClauses.add('LOWER(a.name) LIKE ?');
+
+      variables.add(Variable('%${filter.artist_name!.toLowerCase()}%'));
+    }
+
+    // filtro por tags
+    for (final tagFilter in filter.tags) {
+      whereClauses.add('''
+      EXISTS (
+        SELECT 1
+        FROM artist_tag at2
+        INNER JOIN tag t2
+          ON t2.id = at2.tag
+        WHERE at2.artist = a.id
+          AND LOWER(t2.name) LIKE ?
+      )
+      ''');
+
+      variables.add(Variable('%${tagFilter.toLowerCase()}%'));
+    }
+
+    final whereSql = whereClauses.isEmpty
+        ? ''
+        : 'WHERE ${whereClauses.join(' AND ')}';
+
     final query = customSelect(
       '''
     SELECT 
@@ -99,14 +129,25 @@ class Database extends _$Database {
       t.name AS tag_name,
       at.image_path AS tag_image_path,
       au.url AS work_url
+
     FROM artist a
-    LEFT JOIN artist_tag at ON a.id = at.artist
-    LEFT JOIN tag t ON at.tag = t.id
-    LEFT JOIN artist_url au ON a.id = au.artist
+
+    LEFT JOIN artist_tag at
+      ON a.id = at.artist
+
+    LEFT JOIN tag t
+      ON at.tag = t.id
+
+    LEFT JOIN artist_url au
+      ON a.id = au.artist
+
+    $whereSql
+
     ORDER BY a.id
     ''',
-      // Indica a drift qué tablas se leen para que el stream se actualice
-      // cuando cualquiera de ellas cambie
+
+      variables: variables,
+
       readsFrom: {artist, artistTag, tag, artistUrl},
     ).watch();
 
@@ -115,46 +156,38 @@ class Database extends _$Database {
 
       for (final row in rows) {
         final id = row.read<int>('id');
-        final main_url = row.read<String>('url');
-        final lastGalleryId = row.read<int>('last_gallery_id');
-        final name = row.read<String>('name');
-        final tagName = row.read<String?>('tag_name');
-        final tagImagePath = row.read<String?>('tag_image_path');
-        final work_url = row.read<String?>('work_url');
 
-        // Obtiene o crea el acumulador para este artista
+        final mainUrl = row.read<String>('url');
+
+        final lastGalleryId = row.read<int>('last_gallery_id');
+
+        final name = row.read<String>('name');
+
+        final tagName = row.read<String?>('tag_name');
+
+        final tagImagePath = row.read<String?>('tag_image_path');
+
+        final workUrl = row.read<String?>('work_url');
+
         final acc = items.putIfAbsent(
           id,
-          () => ArtistStreamItem(id, lastGalleryId, name, main_url),
+          () => ArtistStreamItem(id, lastGalleryId, name, mainUrl),
         );
 
-        // Agrega el tag si existe
         if (tagName != null) {
           acc.tags.add((tagName, tagImagePath));
         }
-        // Agrega la URL si existe
-        if (work_url != null) {
-          acc.urls.add(work_url);
+
+        if (workUrl != null) {
+          acc.urls.add(workUrl);
         }
       }
 
-      // Aplicar filtros
-      var result = items.values.toList();
-      if (filter.artist_name != null && filter.artist_name!.isNotEmpty) {
-        final nameFilter = filter.artist_name!.toLowerCase();
-        result = result
-            .where((item) => item.name.toLowerCase().contains(nameFilter))
-            .toList();
-      }
-      if (filter.tags.isNotEmpty) {
-        result = result.where((item) {
-          final itemTagNames = item.tags.map((t) => t.$1).toSet();
-          return filter.tags.every((tag) => itemTagNames.contains(tag));
-        }).toList();
-      }
+      final result = items.values.toList();
 
-      // Ordenar por número de tags descendente
+      // ordenar por número de tags
       result.sort((a, b) => b.tags.length.compareTo(a.tags.length));
+
       return result;
     });
   }
