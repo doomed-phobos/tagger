@@ -1,6 +1,5 @@
-import "dart:typed_data";
-
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:flutter_typeahead/flutter_typeahead.dart";
 import "package:tagger/bootstrap.dart";
 import "package:tagger/db/database.dart";
@@ -327,7 +326,7 @@ class _TagFormState extends State<_TagForm> {
               image = Center(child: CircularProgressIndicator());
             }
 
-            Future<void> search_url() async {
+            Future<void> search_url(String url) async {
               if (context.mounted) {
                 setState(() => loading = true);
               }
@@ -352,15 +351,27 @@ class _TagFormState extends State<_TagForm> {
                 Expanded(
                   flex: 1,
                   child: TextField(
-                    onSubmitted: (_) async => await search_url(),
+                    onSubmitted: (_) async => await search_url(url),
                     onChanged: (value) => url = value,
                     decoration: InputDecoration(
                       labelText: "Image URL",
-                      suffixIcon: IconButton(
-                        onPressed: loading
-                            ? null
-                            : search_url,
-                        icon: Icon(Icons.search),
+                      suffixIcon: Row(
+                        mainAxisSize: .min,
+                        children: [
+                          IconButton(
+                            onPressed: () async {
+                              final data = await Clipboard.getData("text/plain");
+                              if (data?.text != null) {
+                                await search_url(data!.text!);
+                              }
+                            },
+                            icon: Icon(Icons.paste)
+                          ),
+                          IconButton(
+                            onPressed: loading ? null : () async => await search_url(url),
+                            icon: Icon(Icons.search),
+                          ),
+                        ],
                       ),
                       hintText: "https://hitomi.la/reader/xxxxxxx.html#xx-xx",
                     ),
@@ -410,13 +421,27 @@ class _LinkFormState extends State<_LinkForm> {
             decoration: InputDecoration(
               labelText: "Link?",
               hintText: "https://www.pixiv.net/",
-              suffixIcon: IconButton(
-                onPressed: () {
-                  if (formKey.currentState!.validate()) {
-                    add_link(controller.text);
-                  }
-                },
-                icon: Icon(Icons.add),
+              suffixIcon: Row(
+                mainAxisSize: .min,
+                children: [
+                  IconButton(
+                    onPressed: () async {
+                      final data = await Clipboard.getData("text/plain");
+                      if (data?.text != null) {
+                        controller.text = data!.text!;
+                      }
+                    },
+                    icon: Icon(Icons.paste),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      if (formKey.currentState!.validate()) {
+                        add_link(controller.text);
+                      }
+                    },
+                    icon: Icon(Icons.add),
+                  ),
+                ],
               ),
             ),
             validator: (value) =>
