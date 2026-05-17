@@ -211,11 +211,13 @@ class _TagFormState extends State<_TagForm> {
         children: [
           TypeAheadField<String>(
             key: ValueKey(widget.tag_map.length),
+            debounceDuration: Duration(milliseconds: 100),
             focusNode: focusNode,
             controller: controller,
             suggestionsCallback: (search) async {
               final tags = await widget.database.find_tags(search);
-              return tags.where((x) => !widget.tag_map.containsKey(x)).toList();
+              return tags.where((x) => !widget.tag_map.containsKey(x)).toList()
+                ..sort((a, b) => a.compareTo(b));
             },
             onSelected: (tag) {
               add_tag(tag);
@@ -325,39 +327,39 @@ class _TagFormState extends State<_TagForm> {
               image = Center(child: CircularProgressIndicator());
             }
 
+            Future<void> search_url() async {
+              if (context.mounted) {
+                setState(() => loading = true);
+              }
+
+              FocusManager.instance.primaryFocus?.unfocus();
+              await Future.delayed(const Duration(milliseconds: 50));
+
+              final res = await get_image_bytes_from_hitomi_url(url).run();
+
+              res.match(
+                (e) => show_error_toast(e),
+                (bytes) => update_image(bytes),
+              );
+
+              if (context.mounted) {
+                setState(() => loading = false);
+              }
+            }
+
             return Column(
               children: [
                 Expanded(
                   flex: 1,
                   child: TextField(
+                    onSubmitted: (_) async => await search_url(),
                     onChanged: (value) => url = value,
                     decoration: InputDecoration(
                       labelText: "Image URL",
                       suffixIcon: IconButton(
                         onPressed: loading
                             ? null
-                            : () async {
-                                setState(() => loading = true);
-
-                                FocusManager.instance.primaryFocus?.unfocus();
-                                await Future.delayed(
-                                  const Duration(milliseconds: 50),
-                                );
-
-                                final res =
-                                    await get_image_bytes_from_hitomi_url(
-                                      url,
-                                    ).run();
-
-                                res.match(
-                                  (e) => show_error_toast(e),
-                                  (bytes) => update_image(bytes),
-                                );
-
-                                if (context.mounted) {
-                                  setState(() => loading = false);
-                                }
-                              },
+                            : search_url,
                         icon: Icon(Icons.search),
                       ),
                       hintText: "https://hitomi.la/reader/xxxxxxx.html#xx-xx",
