@@ -208,9 +208,23 @@ class Database extends _$Database {
       }
 
       await Future.wait(image_futures);
+      await replaceArtistUrls(artist_id, urls);
 
       return unit;
     });
+  }
+
+  Future<void> replaceArtistUrls(int artistId, List<String> urls) async {
+    // Delete existing URLs
+    await (delete(
+      artistUrl,
+    )..where((au) => au.artist.equals(artistId))).go();
+    // Insert new ones
+    for (final url in urls) {
+      await into(
+        artistUrl,
+      ).insert(ArtistUrlCompanion(artist: Value(artistId), url: Value(url)));
+    }
   }
 
   Future<int> upsert_artist(ArtistCompanion companion) async {

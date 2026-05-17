@@ -2,6 +2,7 @@ import "dart:typed_data";
 
 import "package:flutter/material.dart";
 import "package:flutter_typeahead/flutter_typeahead.dart";
+import "package:tagger/bootstrap.dart";
 import "package:tagger/db/database.dart";
 import "package:tagger/dialog.dart";
 import "package:fpdart/fpdart.dart" as fp;
@@ -67,62 +68,65 @@ class _AddPage extends State<AddPage> {
 
         await exit_dialog();
       },
-      child: Form(
-        key: formKey,
-        child: Column(
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: exit_dialog,
-                  icon: Icon(Icons.arrow_circle_left_rounded),
-                ),
-                const Expanded(
-                  child: Text(
-                    "Add Artist",
-                    textAlign: .center,
-                    style: TextStyle(fontWeight: .bold, fontSize: 24),
+      child: bootstrap(
+        Form(
+          key: formKey,
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: exit_dialog,
+                    icon: Icon(Icons.arrow_circle_left_rounded),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      "Add Artist",
+                      textAlign: .center,
+                      style: TextStyle(fontWeight: .bold, fontSize: 24),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: save_artist,
+                    icon: isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(),
+                          )
+                        : Icon(Icons.save),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      SizedBox(height: 10),
+                      TextFormField(
+                        controller: controller,
+                        decoration: InputDecoration(
+                          labelText: "Artist URL",
+                          hintText:
+                              "https://hitomi.la/artist/XXXXXXXX-all.html",
+                        ),
+                        validator: (value) => (value == null || value.isEmpty)
+                            ? "URL artist is empty"
+                            : null,
+                      ),
+                      SizedBox(height: 20),
+
+                      _TagForm(widget._database, widget._tag_map),
+
+                      SizedBox(height: 10),
+
+                      _LinkForm(widget._link_set),
+                    ],
                   ),
                 ),
-                IconButton(
-                  onPressed: save_artist,
-                  icon: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(),
-                        )
-                      : Icon(Icons.save),
-                ),
-              ],
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    SizedBox(height: 10),
-                    TextFormField(
-                      controller: controller,
-                      decoration: InputDecoration(
-                        labelText: "Artist URL",
-                        hintText: "https://hitomi.la/artist/XXXXXXXX-all.html",
-                      ),
-                      validator: (value) => (value == null || value.isEmpty)
-                          ? "URL artist is empty"
-                          : null,
-                    ),
-                    SizedBox(height: 20),
-
-                    _TagForm(widget._database, widget._tag_map),
-
-                    SizedBox(height: 10),
-
-                    _LinkForm(widget._link_set),
-                  ],
-                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -145,7 +149,11 @@ class _AddPage extends State<AddPage> {
           .flatMap(
             (data) => fp.TaskEither.Do(($) async {
               if (await widget._database.does_exist_artist(data.name.value)) {
-                if (!await show_yes_no_dialog(context, "Overwrite", "Overwrite artist?")) {
+                if (!await show_yes_no_dialog(
+                  context,
+                  "Overwrite",
+                  "Overwrite artist?",
+                )) {
                   return await $(fp.TaskEither.left("Canceled"));
                 }
               }

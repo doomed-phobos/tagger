@@ -2,7 +2,6 @@ import "dart:io";
 
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
-import "package:tagger/bootstrap.dart";
 import "package:tagger/db/database.dart";
 import "package:tagger/dialog.dart";
 import "package:tagger/extractor/artist.dart";
@@ -108,7 +107,7 @@ class _HomePage extends State<HomePage> {
     if (context.mounted) {
       await Navigator.of(
         context,
-      ).push(MaterialPageRoute(builder: (context) => bootstrap(page)));
+      ).push(MaterialPageRoute(builder: (context) => page));
     }
   }
 }
