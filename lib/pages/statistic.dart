@@ -17,28 +17,33 @@ class StatisticPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, int>>(
-        future: _database.get_tags_count(),
+      future: _database.get_tags_count(),
 
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          }
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text("Error: ${snapshot.error}"));
+        }
 
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          final data = snapshot.data!;
+        final data = snapshot.data!;
 
-          final chartData =
-              data.entries.map((e) => StatisticItem(e.key, e.value)).toList();
+        final chartData = data.entries
+            .map((e) => StatisticItem(e.key, e.value))
+            .toList();
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
+        final chartHeight = (chartData.length * 30).toDouble();
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+
+          child: SizedBox(
+            height: chartHeight,
 
             child: SfCartesianChart(
               primaryXAxis: CategoryAxis(
-                // reducir labels largos
                 maximumLabelWidth: 60,
 
                 labelIntersectAction: AxisLabelIntersectAction.wrap,
@@ -52,18 +57,18 @@ class StatisticPage extends StatelessWidget {
 
               series: <CartesianSeries>[
                 BarSeries<StatisticItem, String>(
+                  name: "Tags",
+                  color: Colors.blue,
                   dataSource: chartData,
-
                   xValueMapper: (StatisticItem item, _) => item.name,
-
                   yValueMapper: (StatisticItem item, _) => item.count,
-
                   dataLabelSettings: const DataLabelSettings(isVisible: true),
                 ),
               ],
             ),
-          );
-        },
+          ),
+        );
+      },
     );
   }
 }
