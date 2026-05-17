@@ -158,7 +158,7 @@ class _ArtistItemState extends State<_ArtistItem> {
               .run();
     }
 
-    if (context.mounted) {
+    if (mounted) {
       setState(() {
         circle_color = widget.memo_update[widget.data.name]!;
       });
