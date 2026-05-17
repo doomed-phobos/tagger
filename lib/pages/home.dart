@@ -12,8 +12,9 @@ import "package:tagger/toast.dart";
 
 class HomePage extends StatefulWidget {
   final Database _database;
+  final Map<String, Color> _memo_update = {};
 
-  const HomePage(this._database, {super.key});
+  HomePage(this._database, {super.key});
 
   @override
   createState() => _HomePage();
@@ -58,6 +59,7 @@ class _HomePage extends State<HomePage> {
                   data[index],
                   edit_artist_item,
                   delete_artist_item,
+                  widget._memo_update,
                 ),
               );
             },
@@ -116,11 +118,13 @@ class _ArtistItem extends StatefulWidget {
   final ArtistStreamItem data;
   final void Function(ArtistStreamItem) fn_go_to_add_page;
   final void Function(int) fn_delete_artist_item;
+  final Map<String, Color> memo_update;
 
   const _ArtistItem(
     this.data,
     this.fn_go_to_add_page,
     this.fn_delete_artist_item,
+    this.memo_update,
   );
 
   @override
@@ -140,19 +144,23 @@ class _ArtistItemState extends State<_ArtistItem> {
   }
 
   Future<void> check_update() async {
-    final color = await get_artist_data_from_url(widget.data.main_url)
-        .map((r) => r.$2)
-        .map(
-          (last_gallery_id) => last_gallery_id == widget.data.last_gallery_id
-              ? Colors.green
-              : Colors.orange,
-        )
-        .getOrElse((_) => Colors.red)
-        .run();
+    if (!widget.memo_update.containsKey(widget.data.name)) {
+      widget.memo_update[widget.data.name] =
+          await get_artist_data_from_url(widget.data.main_url)
+              .map((r) => r.$2)
+              .map(
+                (last_gallery_id) =>
+                    last_gallery_id == widget.data.last_gallery_id
+                    ? Colors.green
+                    : Colors.orange,
+              )
+              .getOrElse((_) => Colors.red)
+              .run();
+    }
 
     if (context.mounted) {
       setState(() {
-        circle_color = color;
+        circle_color = widget.memo_update[widget.data.name]!;
       });
     }
   }
@@ -230,7 +238,9 @@ class _ArtistItemState extends State<_ArtistItem> {
                     Flexible(
                       child: GestureDetector(
                         onTap: () async {
-                          await Clipboard.setData(ClipboardData(text: widget.data.main_url));
+                          await Clipboard.setData(
+                            ClipboardData(text: widget.data.main_url),
+                          );
 
                           show_success_toast("Artist URL copied!");
                         },
